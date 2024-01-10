@@ -49,8 +49,8 @@ def create_wst(
         wavedec_kwargs=None,
         level_cutoff=None,
         cutoff=None,
-        pcc=False,
     ):
+        pcc = False  # nin17: pcc is not preserved in dwt
         _wavelet_kwargs = wavelet_kwargs(wavedec_kwargs)
 
         vec1, vec2 = vectors_st(img1, img2, ss, ts)
@@ -89,8 +89,8 @@ def create_wsvt(
         wavedec_kwargs=None,
         level_cutoff=None,
         cutoff=None,
-        pcc=False,
     ):
+        pcc = False  # nin17: pcc is not preserved in dwt
         _wavelet_kwargs = wavelet_kwargs(wavedec_kwargs)
 
         vec1 = wavedec(img1, mode=WAVEDEC_MODE, axis=-3, **_wavelet_kwargs)
@@ -124,8 +124,8 @@ def create_wst_wsvt(xp, vectors_st_svt, similarity_st, find_displacement, wavede
         wavedec_kwargs=None,
         level_cutoff=None,
         cutoff=None,
-        pcc=False,
     ):
+        pcc = False  # nin17: pcc is not preserved in dwt
         _wavelet_kwargs = wavelet_kwargs(wavedec_kwargs)
 
         vec1, vec2 = vectors_st_svt(img1, img2, ss, ts)

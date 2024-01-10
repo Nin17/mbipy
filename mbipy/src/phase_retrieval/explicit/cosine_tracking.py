@@ -52,7 +52,6 @@ def create_cst(
         ss: tuple[int, int],
         ts: tuple[int, int],
         cutoff: int | None = None,
-        pcc: bool = False,
         dct_kwargs: dict | None = None,
     ):
         """_summary_
@@ -77,6 +76,7 @@ def create_cst(
         array
             _description_
         """
+        pcc = False  # nin17: pcc not preserved in dct
         if dct_kwargs is None:
             dct_kwargs = {}
         vectors = vectors_st(img1, img2, ss, ts)
@@ -94,7 +94,8 @@ def create_cst(
 
 
 def create_csvt(xp, cosine_similarity_svt, find_displacement, dct):
-    def csvt(img1, img2, m, n, cutoff=None, pcc=False, dct_kwargs=None):
+    def csvt(img1, img2, m, n, cutoff=None, dct_kwargs=None):
+        pcc = False  # nin17: pcc not preserved in dct
         if dct_kwargs is None:
             dct_kwargs = {}
 
@@ -115,7 +116,8 @@ def create_csvt(xp, cosine_similarity_svt, find_displacement, dct):
 
 
 def create_cst_csvt(xp, vectors_st_svt, similarity_st, find_displacement, dct):
-    def cst_csvt(img1, img2, ss, ts, cutoff=None, pcc=False, dct_kwargs=None):
+    def cst_csvt(img1, img2, ss, ts, cutoff=None, dct_kwargs=None):
+        pcc = False  # nin17: pcc not preserved in dct
         if dct_kwargs is None:
             dct_kwargs = {}
         vectors = vectors_st_svt(img1, img2, ss, ts)
