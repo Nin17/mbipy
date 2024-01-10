@@ -10,6 +10,3 @@
 [submodule "nnls_numba"]
 	path = nnls_numba
 	url = git@github.com:Nin17/nnls_numba.git
-[submodule "pypwt"]
-	path = pypwt
-	url = git@github.com:Nin17/pypwt.git
