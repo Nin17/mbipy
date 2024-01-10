@@ -4,7 +4,6 @@
 __all__ = "cst", "cst_csvt", "csvt", "xst", "xst_xsvt", "xsvt"
 
 import cupy as cp
-import numpy as np
 from cupyx.scipy import fft
 
 from ...src.phase_retrieval.explicit import (
