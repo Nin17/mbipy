@@ -118,19 +118,22 @@ def create_vectors_st_svt(xp, swv):
         img2 = img2[..., m1:m2, n1:n2]
 
         # _ss = xp.zeros(img1.ndim - 1, dtype=np.int64)
-        _ts = xp.zeros(img1.ndim - 1, dtype=np.int64)
+        _ts = np.zeros(img1.ndim - 1, dtype=np.int64)
         # _ss[-2:] = ss
         _ts[-2:] = ts
 
         # idk = _ss[-2:] // 2
         # img2 = img2[..., idk[0] : -idk[0], idk[1] : -idk[1]]
-        img1_shape = xp.array(img1.shape[:-3] + img1.shape[-2:])
-        img2_shape = xp.array(img2.shape[:-3] + img2.shape[-2:])
-        shape1 = xp.array(img1_shape) - _ts
+        img1_shape = np.array(img1.shape[:-3] + img1.shape[-2:])
+        img2_shape = np.array(img2.shape[:-3] + img2.shape[-2:])
+        shape1 = np.array(img1_shape) - _ts
         shape1[-2:] += 1
-        shape2 = xp.array(img2_shape) - _ts
+        shape2 = np.array(img2_shape) - _ts
         shape2[-2:] += 1
         # TODO do it with transpose and reshape
+        ts = tuple(ts)
+        shape1 = tuple(shape1)
+        shape2 = tuple(shape2)
         img1_swv = swv(img1, ts, axis=(-2, -1))
         img1_swv = xp.moveaxis(img1_swv, -5, -3).reshape(*shape1, -1)
         img2_swv = swv(img2, ts, axis=(-2, -1))
