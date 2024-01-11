@@ -1,0 +1,43 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=61.0"]
+
+[project]
+name = 'mbipy'
+version = '0.1.0'
+description = 'A package for modulation-based x-ray phase contrast imaging'
+readme = 'README.md'
+license = {file = 'LICENSE'}
+authors = [{name = 'Chris Ninham', email = 'christopher.ninham@creatis.insa-lyon.fr'},]
+dependencies = ["scipy", "numpy"]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+]
+
+cupy = [
+    "cupy",
+]
+
+jax = [
+    "jax",
+]
+
+torch = [
+    "torch",
+]
+
+numba = [
+    "numba",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/Nin17/mbipy"
+"Bug Tracker" = "https://github.com/Nin17/mbipy/issues"
+
+
+[tool.setuptools]
+py-modules = ["mbipy"]
+
+
