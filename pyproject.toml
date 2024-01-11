@@ -37,7 +37,16 @@ numba = [
 "Bug Tracker" = "https://github.com/Nin17/mbipy/issues"
 
 
-[tool.setuptools]
-py-modules = ["mbipy"]
+[tool.setuptools.packages.find]
+include = ["mbipy*"]
+exclude = [
+    "cminpack_numba*",
+    "data*",
+    "dxraylib*",
+    "envs*",
+    "examples*",
+    "nnls_numba*",
+    "xraylib_numba",
+] 
 
 
