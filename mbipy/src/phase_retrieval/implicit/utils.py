@@ -182,30 +182,68 @@ def create_implicit_tracking(xp, swv, solver):
 
 
 def create_laplace(xp):
-    def laplace(image_stack):
-        output = xp.empty_like(image_stack)
-        output[..., 1:-1, :] += (
-            image_stack[..., :-2, :]
-            + image_stack[..., 2:, :]
-            - (2 * image_stack[..., 1:-1, :])
-        )
-        output[..., 1:-1] += (
-            image_stack[..., :-2] + image_stack[..., 2:] - 2 * image_stack[..., 1:-1]
-        )
-        output[..., 0, :] += (
-            image_stack[..., 0, :] + image_stack[..., 1, :] - 2 * image_stack[..., 0, :]
-        )
-        output[..., -1, :] += (
-            image_stack[..., -1, :]
-            + image_stack[..., -2, :]
-            - 2 * image_stack[..., -1, :]
-        )
-        output[..., 0] += (
-            image_stack[..., 0] + image_stack[..., 1] - 2 * image_stack[..., 0]
-        )
-        output[..., -1] += (
-            image_stack[..., -1] + image_stack[..., -2] - 2 * image_stack[..., -1]
-        )
-        return output
+    if xp.__name__ == "jax.numpy":
+
+        def laplace(image_stack):
+            output = xp.zeros_like(image_stack)
+            output = output.at[..., 1:-1, :].add(
+                image_stack[..., :-2, :]
+                + image_stack[..., 2:, :]
+                - (2 * image_stack[..., 1:-1, :])
+            )
+            output = output.at[..., 1:-1].add(
+                image_stack[..., :-2]
+                + image_stack[..., 2:]
+                - (2 * image_stack[..., 1:-1])
+            )
+            output = output.at[..., 0, :].add(
+                image_stack[..., 0, :]
+                + image_stack[..., 1, :]
+                - 2 * image_stack[..., 0, :]
+            )
+            output = output.at[..., -1, :].add(
+                image_stack[..., -1, :]
+                + image_stack[..., -2, :]
+                - 2 * image_stack[..., -1, :]
+            )
+            output = output.at[..., 0].add(
+                image_stack[..., 0] + image_stack[..., 1] - 2 * image_stack[..., 0]
+            )
+            output = output.at[..., -1].add(
+                image_stack[..., -1] + image_stack[..., -2] - 2 * image_stack[..., -1]
+            )
+            return output
+
+    else:
+
+        def laplace(image_stack):
+            output = xp.empty_like(image_stack)
+            output[..., 1:-1, :] += (
+                image_stack[..., :-2, :]
+                + image_stack[..., 2:, :]
+                - (2 * image_stack[..., 1:-1, :])
+            )
+            output[..., 1:-1] += (
+                image_stack[..., :-2]
+                + image_stack[..., 2:]
+                - 2 * image_stack[..., 1:-1]
+            )
+            output[..., 0, :] += (
+                image_stack[..., 0, :]
+                + image_stack[..., 1, :]
+                - 2 * image_stack[..., 0, :]
+            )
+            output[..., -1, :] += (
+                image_stack[..., -1, :]
+                + image_stack[..., -2, :]
+                - 2 * image_stack[..., -1, :]
+            )
+            output[..., 0] += (
+                image_stack[..., 0] + image_stack[..., 1] - 2 * image_stack[..., 0]
+            )
+            output[..., -1] += (
+                image_stack[..., -1] + image_stack[..., -2] - 2 * image_stack[..., -1]
+            )
+            return output
 
     return laplace
