@@ -217,7 +217,7 @@ def create_laplace(xp):
     else:
 
         def laplace(image_stack):
-            output = xp.empty_like(image_stack)
+            output = xp.zeros_like(image_stack)
             output[..., 1:-1, :] += (
                 image_stack[..., :-2, :]
                 + image_stack[..., 2:, :]
