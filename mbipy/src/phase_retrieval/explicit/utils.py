@@ -26,6 +26,45 @@ def cutoff_warning(*arrays, cutoff=None, axis=-1):
             )
 
 
+def create_similarity_st(xp, swv):
+    # TODO nin17: docstring
+    docstring = """"""
+
+    def similarity_st(img1_swv, img2_swv, ss):
+
+        img1_swv_norm = xp.linalg.norm(img1_swv, axis=-1)
+
+        img1_swv = img1_swv / img1_swv_norm[..., None]
+
+        img1_swv_swv = swv(img1_swv, ss, axis=(-3, -2))
+        return xp.einsum(
+            "...ijklm, ...ijklm -> ...ijlm",
+            img1_swv_swv,
+            img2_swv[..., None, None],
+            optimize="optimal",
+        )
+
+    similarity_st.__doc__ = docstring
+    return similarity_st
+
+
+def create_similarity_svt(xp, swv):
+    def similarity_svt(img1, img2, m, n)
+        # TODO nin17: docstring
+        _m, _n = 2 * m + 1, 2 * n + 1
+        norm1 = xp.linalg.norm(img1, axis=-3, keepdims=True)
+        img1 = img1 / norm1
+        img1_swv = swv(img1, (_m, _n), axis=(-2, -1))
+        return xp.einsum(
+            "...ijklm, ...ijklm -> ...jklm",
+            img1_swv,
+            img2[..., None, None],
+            optimize="optimal",
+        )
+
+    return similarity_svt
+
+
 def create_vectors_st(swv):
     def vectors_st(img1, img2, ss, ts):
         assert img1.ndim == img2.ndim
@@ -55,49 +94,6 @@ def create_vectors_st(swv):
         return img1_swv, img2_swv
 
     return vectors_st
-
-
-def create_similarity_st(xp, swv):
-    # TODO nin17: docstring
-    docstring = """"""
-
-    def similarity_st(img1_swv, img2_swv, ss, pcc=False):
-        if pcc:
-            img1_swv = img1_swv - img1_swv.mean(axis=-1, keepdims=True)
-
-        img1_swv_norm = xp.linalg.norm(img1_swv, axis=-1)
-
-        img1_swv = img1_swv / img1_swv_norm[..., None]
-
-        img1_swv_swv = swv(img1_swv, ss, axis=(-3, -2))
-        return xp.einsum(
-            "...ijklm, ...ijklm -> ...ijlm",
-            img1_swv_swv,
-            img2_swv[..., None, None],
-            optimize="optimal",
-        )
-
-    similarity_st.__doc__ = docstring
-    return similarity_st
-
-
-def create_similarity_svt(xp, swv):
-    def similarity_svt(img1, img2, m, n, pcc=False):
-        # TODO nin17: docstring
-        _m, _n = 2 * m + 1, 2 * n + 1
-        if pcc:
-            img1 = img1 - img1.mean(axis=-3, keepdims=True)
-        norm1 = xp.linalg.norm(img1, axis=-3, keepdims=True)
-        img1 = img1 / norm1
-        img1_swv = swv(img1, (_m, _n), axis=(-2, -1))
-        return xp.einsum(
-            "...ijklm, ...ijklm -> ...jklm",
-            img1_swv,
-            img2[..., None, None],
-            optimize="optimal",
-        )
-
-    return similarity_svt
 
 
 def create_vectors_st_svt(xp, swv):
