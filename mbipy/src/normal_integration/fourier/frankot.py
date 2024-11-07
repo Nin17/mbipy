@@ -1,12 +1,13 @@
-"""Normal integration using the method of Kottler et al.
+"""Normal integration using the method of Frankot and Chellappa.
 
-Kottler, C., David, C., Pfeiffer, F. & Bunk, O. A two-directional approach for
-grating based differential phase contrast imaging using hard x-rays 2007.
+Frankot, R. T. & Chellappa, R. A method for enforcing integrability in shape
+from shading algorithms.
+IEEE Transactions on pattern analysis and machine intelligence 10, 439-451 (1988)
 """
 
 from __future__ import annotations
 
-__all__ = ("kottler",)
+__all__ = ("frankot",)
 
 
 from typing import TYPE_CHECKING
@@ -20,36 +21,12 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 
-def kottler(
+def frankot(
     gy: NDArray[floating],
     gx: NDArray[floating],
     pad: str | None = None,
     workers: int | None = None,
 ) -> NDArray[floating]:
-    """Integrate the normal field using the method of Kottler et al.
-
-    Parameters
-    ----------
-    gy : NDArray[floating]
-        Component of the normal field in the vertical direction.
-    gx : NDArray[floating]
-        Component of the normal field in the horizontal direction.
-    pad : str | None, optional
-        padding of the , by default None
-    workers : int | None, optional
-        _description_, by default None
-
-    Returns
-    -------
-    NDArray[floating]
-        _description_
-
-    Raises
-    ------
-    ValueError
-        if pad is not None or "antisym"
-
-    """
     # TODO(nin17): docstring
     xp = array_namespace(gy, gx)
     dtype = xp.result_type(gy, gx)
@@ -69,11 +46,14 @@ def kottler(
 
     fx = xp.astype(xp.fft.fftfreq(2 * x if pad else x), dtype, copy=False)
     fy = xp.astype(xp.fft.fftfreq(2 * y if pad else y)[:, None], dtype, copy=False)
-    f_num = fft2(gx + 1j * gy, axes=(-2, -1), workers=workers)
-    f_den = 1j * 2.0 * xp.pi * (fx + 1j * fy)
+
+    gx_fft = fft2(gx, axes=(-2, -1), workers=workers)
+    gy_fft = fft2(gy, axes=(-2, -1), workers=workers)
+
+    f_num = fx * gx_fft + fy * gy_fft
+    f_den = 2j * xp.pi * (fx * fx + fy * fy)
     # avoid division by zero warning
     f_den = setitem(f_den, (..., 0, 0), 1.0, xp)
     f_phase = f_num / f_den
     f_phase = setitem(f_phase, (..., 0, 0), 0.0, xp)
-
     return ifft2(f_phase, axes=(-2, -1), workers=workers).real[..., :y, :x]
