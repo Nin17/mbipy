@@ -1,52 +1,85 @@
 [build-system]
-build-backend = "setuptools.build_meta"
-requires = ["setuptools>=61.0"]
+requires = ['flit_core >=3.2,<4']
+build-backend = 'flit_core.buildapi'
 
 [project]
 name = 'mbipy'
 version = '0.1.0'
-description = 'A package for modulation-based x-ray phase contrast imaging'
+description = 'Modulation-based x-ray phase contrast imaging.'
 readme = 'README.md'
 license = {file = 'LICENSE'}
-authors = [{name = 'Chris Ninham', email = 'christopher.ninham@creatis.insa-lyon.fr'},]
-dependencies = ["scipy", "numpy"]
+authors = [{name = 'Chris Ninham', email = 'christopher.ninham@insa-lyon.fr'},]
+dependencies = ['array-api-compat', 'numpy>=1.21',]
 
 [project.optional-dependencies]
 test = [
-    "pytest",
+    'pytest',
+    'pytest-cov',
+    'pytest-env',
+    'scipy',
+    'pywavelets',
+    'jax',
+    'jaxwt',
+    'torch>=1.13',
+    'torch-dct',
+    'ptwt',
+    'numba',
+    'rocket-fft'
 ]
-
-cupy = [
-    "cupy",
-]
-
-jax = [
-    "jax",
-]
-
-torch = [
-    "torch",
-]
-
-numba = [
-    "numba",
-]
+cupy = ['cupy',] # TODO(nin17): cupywt
+jax = ['jax', 'jaxwt'] # TODO(nin17): simple_pytree
+torch = ['torch>=1.13', 'torch-dct', 'ptwt']
+numba = ['numba', 'rocket-fft'] # TODO(nin17): nnls_numba, cminpack_numba
 
 [project.urls]
-"Homepage" = "https://github.com/Nin17/mbipy"
-"Bug Tracker" = "https://github.com/Nin17/mbipy/issues"
+'Homepage' = 'https://github.com/Nin17/mbipy'
+'Bug Tracker' = 'https://github.com/Nin17/mbipy/issues'
 
+# ??? Is this needed?
+# [project.entry-points.numba_extensions]
+# init = 'mbipy:_init'
 
-[tool.setuptools.packages.find]
-include = ["mbipy*"]
-exclude = [
-    "cminpack_numba*",
-    "data*",
-    "dxraylib*",
-    "envs*",
-    "examples*",
-    "nnls_numba*",
-    "xraylib_numba",
-] 
+[tool.pytest.ini_options]
+testpaths = ['tests']
+addopts = ['--import-mode=importlib', '--ignore=**/utils.py']
+# addopts = --ignore=somedir
 
+[tool.pytest_env]
+JAX_ENABLE_X64=true
+NUMBA_CAPTURED_ERRORS='new_style'
 
+# [tool.setuptools.packages.find]
+# include = ['mbipy*']
+# exclude = [
+#     'cminpack_numba*',
+#     'cupywt*',
+#     'data*',
+#     'dxraylib*',
+#     'envs*',
+#     'examples*',
+#     'nnls_numba*',
+#     'xraylib_numba',
+# ] 
+
+[tool.ruff]
+line-length = 88
+exclude = ['**.ipynb',] # ???
+
+[tool.ruff.lint]
+select = ['ALL']
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.extend-per-file-ignores]
+'mbipy/src/*/__init__.py' = ['D104', 'F403']
+'mbipy/src/normal_integration/padding.py' = ['ERA001',]
+'mbipy/src/normal_integration/fourier/*' = ['FBT001', 'FBT002']
+'mbipy/src/normal_integration/fourier/dct.py' = ['ERA001',]
+'mbipy/src/normal_integration/fourier/dst.py' = ['ERA001',]
+'mbipy/src/normal_integration/least_squares/li.py' = ['ERA001',]
+'mbipy/src/normal_integration/least_squares/southwell.py' = ['ERA001', 'RUF002',]
+
+'tests/*' = ['D101', 'N801', 'S101']
+'tests/normal_integration/test_jax.py' =['ANN001', 'ANN202']
+'tests/normal_integration/test_numba.py' = ['ANN001', ]
