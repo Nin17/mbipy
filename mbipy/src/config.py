@@ -1,5 +1,4 @@
-"""_summary_
-"""
+"""_summary_"""
 
 __all__ = (
     "__have_jax__",
