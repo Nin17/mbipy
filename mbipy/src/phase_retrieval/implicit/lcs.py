@@ -1,229 +1,95 @@
-"""_summary_
-"""
+"""_summary_"""
 
-__all__ = (
-    "create_lcs_matrices",
-    "create_lcs_vectors",
-    "create_lcs",
-    "create_lcs_df",
-    "create_lcs_df_matrices",
-)
+from __future__ import annotations
+
+import warnings
+from typing import TYPE_CHECKING, Callable
+
+from array_api_compat import is_jax_namespace, is_torch_namespace
+
+from mbipy.src.config import __have_numba__
+from mbipy.src.phase_retrieval.explicit.utils import assert_odd, get_swv
+from mbipy.src.phase_retrieval.implicit.utils import laplace32  # is_invertible,
+from mbipy.src.utils import Pytree, array_namespace, static_field
+
+if TYPE_CHECKING:
+    from types import ModuleType
+
+    from numpy import floating
+    from numpy.typing import ArrayLike, DTypeLike, NDArray
 
 # __all__ = ("lcs", "lcs_df", "lcs_ddf", "Lcs", "LcsDf", "LcsDDf")
 
-import importlib
+MIN_NDIM = 3
+
+# !!! gradient not in array api standard
+# !!! .squeeze() not in array api standard
 
 
-def create_lcs_matrices(xp):
-    def lcs_matrices(reference):
-        assert reference.ndim >= 3
-        gradient = xp.gradient(reference, axis=(-2, -1))
-        matrices = xp.stack((reference, -gradient[0], -gradient[1]), axis=-1)
-        order = tuple(range(0, matrices.ndim - 4)) + (-3, -2, -4, -1)
-        return matrices.transpose(order)
-        # return xp.moveaxis(matrices, -4, -2) # TODO nin17: see if transpose is faster
-
-    return lcs_matrices
-
-
-def create_lcs_vectors():
-    def lcs_vectors(sample):
-        assert sample.ndim >= 3
-        return sample.transpose(tuple(range(0, sample.ndim - 3)) + (-2, -1, -3))
-
-    return lcs_vectors
-
-
-def create_lcs(
-    lcs_matrices, lcs_vectors, solver, implicit_tracking, jax=False, numba=False
-):
-    if sum((jax, numba)) > 1:
-        raise ValueError("Only one of jax or numba can be True")
-    if not jax and not numba:
-
-        def lcs(sample, reference, weak_absorption=True, m=None, n=None, **kwargs):
-            matrices = lcs_matrices(reference)
-            vectors = lcs_vectors(sample)
-
-            kwargs = {"a": 1, "b": 2} | kwargs
-
-            if all(i is not None for i in (m, n)):
-                result = implicit_tracking(matrices, vectors, m, n, **kwargs)
-            else:
-                kwargs.pop("a", None)
-                kwargs.pop("b", None)
-                result = solver(matrices, vectors, **kwargs)
-
-            if weak_absorption:
-                return result
-            result[..., 1:] /= result[..., :1]
-            return result
-
-        return lcs
-    if jax:
-
-        def lcs_jax(reference, sample, weak_absorption=True, **kwargs):
-            matrices = lcs_matrices(reference)
-            vectors = lcs_vectors(sample)
-            result = solver(matrices, vectors, **kwargs)
-            if weak_absorption:
-                return result
-            result = result.at[..., 1:].divide(result[..., :1])
-            return result
-
-    if numba:
-        nb = importlib.import_module("numba")
-        np = importlib.import_module("numpy")
-
-        # TODO refactor to use guvectorize when it is supported in a jit function
-
-        @nb.extending.register_jitable
-        def lcs_numba(reference, sample, weak_absorption=True, alpha=0.0, **kwargs):
-            assert reference.shape == sample.shape
-            assert reference.ndim == 3
-            x, y, z = reference.shape
-            matrices = np.empty((y, z, x, 3), dtype=np.float64)
-            out = np.empty((y, z, 3), dtype=np.float64)
-            # TODO check this alpha stuff
-            # alpha = np.asarray(alpha, dtype=np.float64)
-            # alpha = alpha.reshape(alpha.shape + [1 for _ in range(matrices.ndim - alpha.ndim)])
-            alpha_identity = alpha * np.identity(3, dtype=np.float64)
-
-            sample = sample.transpose(1, 2, 0).copy()
-            # TODO nin17: edges
-            for j in nb.prange(1, y - 1):
-                for k in range(1, z - 1):
-                    for i in range(x):
-                        matrices[j, k, i, 0] = reference[i, j, k]
-                        matrices[j, k, i, 1] = (
-                            -reference[i, j + 1, k] + reference[i, j - 1, k]
-                        ) / 2.0
-                        matrices[j, k, i, 2] = (
-                            -reference[i, j, k + 1] + reference[i, j, k - 1]
-                        ) / 2.0
-
-            for j in nb.prange(1, y - 1):
-                for k in range(1, z - 1):
-                    a = matrices[j, k]
-                    ata = (a.T @ a) + alpha_identity
-                    atb = a.T @ sample[j, k]
-                    out[j, k] = np.linalg.solve(ata, atb)
-
-            if weak_absorption:
-                return out
-
-            for i in nb.prange(1, y - 1):
-                for j in range(1, z - 1):
-                    out[i, j, 1:] /= out[i, j, 0]
-
-            return out
-
-        return lcs_numba
-
-    return lcs_jax
-
-
-def create_lcs_df_matrices(xp, laplace):
-    def lcs_matrices(reference):
-        assert reference.ndim >= 3
-        gradient = xp.gradient(reference, axis=(-2, -1))
-        laplacian = laplace(reference)
-        matrices = xp.stack((reference, -gradient[0], -gradient[1], laplacian), axis=-1)
-        order = tuple(range(0, matrices.ndim - 4)) + (-3, -2, -4, -1)
-        return matrices.transpose(order)
-        # return xp.moveaxis(matrices, -4, -2) # TODO nin17: see if transpose is faster
-
-    return lcs_matrices
-
-
-def create_lcs_df(lcs_df_matrices, lcs_df_vectors, solver):
-    def lcs(reference, sample, weak_absorption=True, m=None, n=None, **kwargs):
-        matrices = lcs_df_matrices(reference)
-        vectors = lcs_df_vectors(sample)
-
-        kwargs = {"a": 1, "b": 2} | kwargs
-
-        if all(i is not None for i in (m, n)):
-            # result = implicit_tracking(matrices, vectors, m, n, **kwargs)
-            pass
-            # TODO nin17: lcs_df tracking
-        else:
-            kwargs.pop("a", None)
-            kwargs.pop("b", None)
-            result = solver(matrices, vectors, **kwargs)
-        # result = solver(matrices, vectors, **kwargs)
-
-        if weak_absorption:
-            return result
-        result[..., 1:] /= result[..., :1]
-        return result
-
-    return lcs
-
-
-from numpy.typing import ArrayLike, NDArray
-
-from ...utils import Pytree, array_namespace, static_field
-from .utils import is_invertible, laplace
-
-
-def _lcs_matrices(reference: NDArray) -> NDArray:
+def _lcs_matrices(reference: NDArray[floating]) -> NDArray[floating]:
     xp = array_namespace(reference)
-    if not reference.ndim >= 3:
+    if not reference.ndim >= MIN_NDIM:
         msg = f"reference must have at least 3 dimensions. {reference.ndim=}."
         raise ValueError(msg)
-    gradient = xp.gradient(reference, axis=(-2, -1))
-    matrices = xp.stack((reference, -gradient[0], -gradient[1]), axis=-1)
-    order = tuple(range(0, matrices.ndim - 4)) + (-3, -2, -4, -1)
-
-    if "torch" in xp.__name__:
-        return matrices.permute(*order)
-    return matrices.transpose(*order)
-    # return xp.moveaxis(matrices, -4, -2) # TODO nin17: see if transpose is faster
+    gradient = xp.gradient(reference, axis=(-3, -2))
+    return xp.stack((reference, -gradient[0], -gradient[1]), axis=-1)
 
 
 def _lcs_df_matrices(reference: NDArray) -> NDArray:
     xp = array_namespace(reference)
-    if not reference.ndim >= 3:
+    if not reference.ndim >= MIN_NDIM:
         msg = f"reference must have at least 3 dimensions. {reference.ndim=}."
         raise ValueError(msg)
-    gradient = xp.gradient(reference, axis=(-2, -1))
-    laplacian = laplace(reference)
-    matrices = xp.stack((reference, -gradient[0], -gradient[1], laplacian), axis=-1)
-    order = tuple(range(0, matrices.ndim - 4)) + (-3, -2, -4, -1)
-    if "torch" in xp.__name__:
-        return matrices.permute(*order)
-    return matrices.transpose(order)
+    gradient = xp.gradient(reference, axis=(-3, -2))
+    laplacian = laplace32(reference)
+    return xp.stack((reference, -gradient[0], -gradient[1], laplacian), axis=-1)
 
 
 def _lcs_ddf_matrices(reference: NDArray) -> NDArray:
     xp = array_namespace(reference)
-    if not reference.ndim >= 3:
+    if not reference.ndim >= MIN_NDIM:
         msg = f"reference must have at least 3 dimensions. {reference.ndim=}."
         raise ValueError(msg)
-    gy, gx = xp.gradient(reference, axis=(-2, -1))
-    gyy, gyx = xp.gradient(gy, axis=(-2, -1))
-    gxy, gxx = xp.gradient(gx, axis=(-2, -1))
+    gy, gx = xp.gradient(reference, axis=(-3, -2))
+    gyy, gyx = xp.gradient(gy, axis=(-3, -2))
+    gxy, gxx = xp.gradient(gx, axis=(-3, -2))
     # Ignore gxy as np.allclose(gxy, gyx) == True
-    matrices = xp.stack((reference, -gy, -gx, gyy, gxx, gyx), axis=-1)
-    order = tuple(range(0, matrices.ndim - 4)) + (-3, -2, -4, -1)
-    if "torch" in xp.__name__:
-        return matrices.permute(*order)
-    return matrices.transpose(order)
+    return xp.stack((reference, -gy, -gx, gyy, gxx, gyx), axis=-1)
 
 
 def _lcs_vectors(sample: NDArray) -> NDArray:
-    xp = array_namespace(sample)
-    if not sample.ndim >= 3:
+    if not sample.ndim >= MIN_NDIM:
         msg = f"sample must have at least 3 dimensions. {sample.ndim=}."
         raise ValueError(msg)
-    if "torch" in xp.__name__:
-        return sample.permute(*range(0, sample.ndim - 3), -2, -1, -3)
-    return sample.transpose(tuple(range(0, sample.ndim - 3)) + (-2, -1, -3))
+    return sample
+
+
+def _process_alpha(
+    alpha: ArrayLike,
+    n: int,
+    m_ndim: int,
+    xp: ModuleType,
+    dtype: DTypeLike,
+) -> NDArray[floating]:
+    alpha = xp.asarray(alpha, dtype=dtype) if isinstance(alpha, (int, float)) else alpha
+    shape = alpha.shape + (1,) * (m_ndim - alpha.ndim - 1)
+    return alpha.reshape(shape) * xp.eye(n, dtype=dtype)
+
+
+def _solve(
+    matrices: NDArray[floating],
+    vectors: NDArray[floating],
+    alpha: NDArray[floating],
+) -> NDArray[floating]:
+    xp = array_namespace(matrices, vectors, alpha)
+    mtconj = xp.conj(matrices.mT)
+    ata = (mtconj @ matrices) + alpha
+    atb = mtconj @ vectors[..., None]
+    return xp.linalg.solve(ata, atb)  # .squeeze(-1).real
 
 
 def _process_slice_arg(
-    s: int | tuple[int, int] | None
+    s: int | tuple[int, int] | None,
 ) -> tuple[int, int] | tuple[None, None]:
     if s is None:
         return None, None
@@ -244,38 +110,112 @@ def _process_slice(
     return slice(start0, stop0, step0), slice(start1, stop1, step1)
 
 
-def lcs(
-    sample: NDArray,
+def _solve_window(
+    matrices: NDArray[floating],
+    vectors: NDArray[floating],
+    alpha: ArrayLike,
+    search_window: tuple[int, int],
+    start: int | tuple[int, int] | None,
+    stop: int | tuple[int, int] | None,
+    step: int | tuple[int, int] | None,
+    xp: ModuleType,
+):
+    raise NotImplementedError
+    assert_odd(search_window)
+    m, n = search_window
+    _m, _n = (m - 1) // 2, (n - 1) // 2
+    matrices = matrices[..., _m:-_m, _n:-_n, :, :]
+    swv = get_swv(xp)
+    s0, s1 = _process_slice(start, stop, step)
+    vectors = swv(vectors, search_window, axis=(-3, -2))[..., s0, s1]
+    vectors = vectors.reshape(*vectors.shape[:-2], -1)
+    result = _solve(matrices, vectors, alpha, xp)
+    residuals = (
+        xp.einsum("...ij, ...jk->...ik", matrices, result, optimize=True) - vectors
+    )
+
+
+def _lcs(
+    sample: NDArray[floating],
     reference: NDArray,
-    weak_absorption: bool = False,
-    alpha: ArrayLike = 0.0,
-    search_window: int | tuple[int, int] | None = None,
-    start: int | tuple[int, int] | None = None,
-    stop: int | tuple[int, int] | None = None,
-    step: int | tuple[int, int] | None = None,
-) -> NDArray:
+    weak_absorption: bool | None,
+    alpha: ArrayLike,
+    search_window: int | tuple[int, int] | None,
+    slices: tuple[slice, slice] | None,
+):
     xp = array_namespace(reference, sample)
+    dtype = xp.result_type(reference, sample)
     matrices = _lcs_matrices(reference)
     vectors = _lcs_vectors(sample)
+    alpha_eye = _process_alpha(alpha, 3, matrices.ndim, xp, dtype)
 
-    # if search_window:
-    #     result = implicit_tracking(
-    #         matrices, vectors, alpha, search_window, start, stop, step
-    #     )
-    # else:
-    #     result = solver(matrices, vectors, alpha)
-
-    alpha = xp.asarray(alpha, dtype=reference.dtype)
-    shape = alpha.shape + (1,) * (matrices.ndim - alpha.ndim - 1)
-    alpha = alpha.reshape(shape)
-    transpose = tuple(range(matrices.ndim - 4)) + (-4, -3, -1, -2)
-    ata = (matrices.transpose(transpose) @ matrices) + alpha * xp.eye(3)
-    atb = matrices.transpose(transpose) @ vectors[..., None]
-    result = xp.linalg.solve(ata, atb).squeeze(-1)
+    if search_window:
+        result = _solve_window(
+            matrices,
+            vectors,
+            alpha_eye,
+            search_window,
+            slices,
+            xp,
+        )
+    else:
+        result = _solve(matrices, vectors, alpha_eye).squeeze(-1)
 
     if weak_absorption:
         return result
-    elif "jax" in xp.__name__:
+    if is_jax_namespace(xp):
+        result = result.at[..., 1:].divide(result[..., :1])
+    else:
+        result[..., 1:] /= result[..., :1]
+    return result
+
+
+def lcs(
+    sample: NDArray,
+    reference: NDArray,
+    weak_absorption: bool | None = None,
+    alpha: ArrayLike = 0.0,
+    search_window: int | tuple[int, int] | None = None,
+    slices: tuple[slice, slice] | None = None,
+) -> NDArray:
+    return _lcs(
+        sample,
+        reference,
+        weak_absorption,
+        alpha,
+        search_window,
+        slices,
+    )
+
+
+def _lcs_df(
+    sample,
+    reference,
+    weak_absorption,
+    alpha,
+    search_window,
+    slices,
+):
+    xp = array_namespace(reference, sample)
+    dtype = xp.result_type(reference, sample)
+    matrices = _lcs_df_matrices(reference)
+    vectors = _lcs_vectors(sample)
+    alpha_eye = _process_alpha(alpha, 4, matrices.ndim, xp, dtype)
+    if search_window:
+        result = _solve_window(
+            matrices,
+            vectors,
+            alpha_eye,
+            search_window,
+            slices,
+            xp,
+        )
+    else:
+        result = _solve(matrices, vectors, alpha_eye).squeeze(-1)
+
+    if weak_absorption:
+        return result
+    if is_jax_namespace(xp):
         result = result.at[..., 1:].divide(result[..., :1])
     else:
         result[..., 1:] /= result[..., :1]
@@ -283,28 +223,51 @@ def lcs(
 
 
 def lcs_df(
-    sample: NDArray,
+    sample: NDArray[floating],
     reference: NDArray,
-    weak_absorption: bool = False,
+    weak_absorption: bool | None = None,
     alpha: ArrayLike = 0.0,
     search_window: int | tuple[int, int] | None = None,
-    start: int | tuple[int, int] | None = None,
-    stop: int | tuple[int, int] | None = None,
-    step: int | tuple[int, int] | None = None,
+    slices: tuple[slice, slice] | None = None,
 ) -> NDArray:
+    return _lcs_df(
+        sample,
+        reference,
+        weak_absorption,
+        alpha,
+        search_window,
+        slices,
+    )
+
+
+def _lcs_ddf(
+    sample,
+    reference,
+    weak_absorption,
+    alpha,
+    search_window,
+    slices,
+):
     xp = array_namespace(reference, sample)
-    matrices = _lcs_df_matrices(reference)
+    dtype = xp.result_type(reference, sample)
+    matrices = _lcs_ddf_matrices(reference)
     vectors = _lcs_vectors(sample)
+    alpha_eye = _process_alpha(alpha, 6, matrices.ndim, xp, dtype)
     if search_window:
-        result = implicit_tracking(
-            matrices, vectors, alpha, search_window, start, stop, step
+        result = _solve_window(
+            matrices,
+            vectors,
+            alpha_eye,
+            search_window,
+            slices,
+            xp,
         )
     else:
-        result = solver(matrices, vectors, alpha)
+        result = _solve(matrices, vectors, alpha_eye).squeeze(-1)
 
     if weak_absorption:
         return result
-    elif "jax" in xp.__name__:
+    if is_jax_namespace(xp):
         result = result.at[..., 1:].divide(result[..., :1])
     else:
         result[..., 1:] /= result[..., :1]
@@ -314,30 +277,125 @@ def lcs_df(
 def lcs_ddf(
     sample: NDArray,
     reference: NDArray,
-    weak_absorption: bool = False,
+    weak_absorption: bool | None = None,
     alpha: ArrayLike = 0.0,
     search_window: int | tuple[int, int] | None = None,
-    start: int | tuple[int, int] | None = None,
-    stop: int | tuple[int, int] | None = None,
-    step: int | tuple[int, int] | None = None,
+    slices: tuple[slice, slice] | None = None,
 ) -> NDArray:
-    xp = array_namespace(reference, sample)
-    matrices = _lcs_ddf_matrices(reference)
-    vectors = _lcs_vectors(sample)
-    if search_window:
-        result = implicit_tracking(
-            matrices, vectors, alpha, search_window, start, stop, step
-        )
-    else:
-        result = solver(matrices, vectors, alpha)
+    return _lcs_ddf(
+        sample,
+        reference,
+        weak_absorption,
+        alpha,
+        search_window,
+        slices,
+    )
 
-    if weak_absorption:
-        return result
-    elif "jax" in xp.__name__:
-        result = result.at[..., 1:].divide(result[..., :1])
-    else:
-        result[..., 1:] /= result[..., :1]
-    return result
+
+if __have_numba__:
+    from numba import extending, prange, types
+    from numpy import empty, float64, identity
+    from numpy.linalg import solve
+
+    @extending.overload(_lcs, jit_options={"parallel": True, "fastmath": True})
+    def _lcs_overload(
+        sample,
+        reference,
+        weak_absorption,
+        alpha,
+        search_window,
+        start,
+        stop,
+        step,
+    ):
+        ndim = 3
+        if isinstance(alpha, types.Array):
+            msg = "only scalar alpha is implemented."
+            raise TypeError(msg)
+
+        if sample.ndim != ndim or reference.ndim != ndim:
+            msg = "only 3D sample and reference arrays are implemented."
+            raise ValueError(msg)
+        if not all(i is types.none for i in (search_window, start, stop, step)):
+            msg = "search_window, start, stop, and step are not implemented."
+            raise ValueError(msg)
+
+        warnings.warn(
+            "Numba implementation is not correct for the edge pixels.",
+            stacklevel=2,
+        )
+
+        # TODO(nin17): complex conjugate
+        def impl(
+            sample,
+            reference,
+            weak_absorption,
+            alpha,
+            search_window,
+            start,
+            stop,
+            step,
+        ):
+            if sample.shape != reference.shape:
+                msg = "sample and reference must have the same shape."
+                raise ValueError(msg)
+            z, y, x = reference.shape
+            # y, x, z = reference.shape
+            matrices = empty((y, x, z, 3), dtype=float64)
+            out = empty((y, x, 3), dtype=float64)
+            # TODO check this alpha stuff
+            # alpha = np.asarray(alpha, dtype=np.float64)
+            # alpha = alpha.reshape(alpha.shape + [1 for _ in range(matrices.ndim - alpha.ndim)])
+            alpha_identity = alpha * identity(3, dtype=float64)
+
+            # sample = sample.transpose(1, 2, 0).copy()
+            sample = sample.transpose(1, 2, 0)
+            # TODO nin17: edges
+            for j in prange(1, y - 1):
+                for k in range(1, x - 1):
+                    for i in range(z):
+                        matrices[j, k, i, 0] = reference[i, j, k]
+                        matrices[j, k, i, 1] = (
+                            -reference[i, j + 1, k] + reference[i, j - 1, k]
+                        ) / 2.0
+                        matrices[j, k, i, 2] = (
+                            -reference[i, j, k + 1] + reference[i, j, k - 1]
+                        ) / 2.0
+                        #!!! change to this eventually - ...yxk faster than ...kyx
+                        # matrices[j, k, i, 0] = reference[j, k, i]
+                        # matrices[j, k, i, 1] = (
+                        #     -reference[j + 1, k, i] + reference[j - 1, k, i]
+                        # ) / 2.0
+                        # matrices[j, k, i, 2] = (
+                        #     -reference[j, k + 1, i] + reference[j, k - 1, i]
+                        # ) / 2.0
+                    a = matrices[j, k]
+                    ata = (a.T @ a) + alpha_identity
+                    atb = a.T @ sample[j, k]
+                    result = solve(ata, atb)
+                    if weak_absorption:
+                        out[j, k] = result
+                    else:
+                        out[j, k, 1:] = result[1:] / result[0]
+                        out[j, k, 0] = result[0]
+
+            # for j in prange(1, y - 1):
+            #     for k in range(1, x - 1):
+            #         a = matrices[j, k]
+            #         ata = (a.T @ a) + alpha_identity
+            #         atb = a.T @ sample[j, k]
+            #         out[j, k] = solve(ata, atb)
+
+            # if weak_absorption:
+            #     return out
+
+            # for i in prange(1, y - 1):
+            #     for j in range(1, x - 1):
+            #         out[i, j, 1:] /= out[i, j, 0]
+
+            return out
+
+        return impl
 
 
 # try:
@@ -413,10 +471,6 @@ def lcs_ddf(
 #     return lcs_numba
 
 
-from types import ModuleType
-from typing import Callable
-
-
 class _BaseLcs(Pytree, mutable=True):
 
     _xp = static_field()
@@ -439,14 +493,14 @@ class _BaseLcs(Pytree, mutable=True):
 
         _alpha = xp.asarray(alpha, dtype=reference.dtype)
         self._alpha = _alpha.reshape(
-            _alpha.shape + (1,) * (matrices.ndim - _alpha.ndim - 1)
+            _alpha.shape + (1,) * (matrices.ndim - _alpha.ndim - 1),
         )
 
         shape_max = float(max(matrices.shape[-2:]))
         rcond_min = xp.asarray(xp.finfo(reference.dtype).eps * shape_max)
         _rcond = xp.maximum(xp.asarray(rcond, dtype=reference.dtype), rcond_min)
         self._rcond = _rcond.reshape(
-            _rcond.shape + (1,) * (matrices.ndim - _rcond.ndim - 1)
+            _rcond.shape + (1,) * (matrices.ndim - _rcond.ndim - 1),
         )
 
         _u, _s, _vh = _xp.linalg.svd(matrices, full_matrices=False)
@@ -459,20 +513,12 @@ class _BaseLcs(Pytree, mutable=True):
         self._s_max = s_max
         self._s_max_rcond = s_max * self._rcond
 
-        transposed = tuple(range(matrices.ndim - 4)) + (-4, -3, -1, -2)
-        if "torch" in xp.__name__:
-            self._vht = vh.permute(*transposed)
-            self._ut = u.permute(*transposed)
-        else:
-            self._vht = vh.transpose(*transposed)  # .mT
-            self._ut = u.transpose(*transposed)  # .mT
-        # self._vhtut = vh.transpose(transposed) @ u.transpose(transposed)
+        self._vht = xp.conj(vh.mT)
+        self._ut = xp.conj(u.mT)
 
         self._compute_tikhonov_alpha()
         self._compute_tikhonov_rcond()
         self._compute_tikhonov()
-
-        # self._vht_tikhonov = vh.transpose(transposed) * self._tikhonov
 
         self._pinv()
 
@@ -481,9 +527,7 @@ class _BaseLcs(Pytree, mutable=True):
         sample: NDArray,
         weak_absorption: bool = False,
         search_window: int | tuple[int, int] | None = None,
-        start: int | tuple[int, int] | None = None,
-        stop: int | tuple[int, int] | None = None,
-        step: int | tuple[int, int] | None = None,
+        slices: tuple[slice, slice] | None = None,
     ) -> NDArray:
         # TODO(nin17): implement implicit tracking
         xp = array_namespace(self._matrices, sample)
@@ -493,7 +537,7 @@ class _BaseLcs(Pytree, mutable=True):
 
         if weak_absorption:
             return result
-        elif "jax" in xp.__name__:
+        if is_jax_namespace(xp):
             result = result.at[..., 1:].divide(result[..., :1])
         else:
             result[..., 1:] /= result[..., :1]
@@ -579,7 +623,7 @@ class Lcs(_BaseLcs, mutable=True):
         rcond: ArrayLike = 0.0,
         *,
         xp: ModuleType | None = None,
-    ):
+    ) -> None:
         super().__init__(reference, alpha, rcond, xp, _lcs_matrices)
 
 
@@ -591,7 +635,7 @@ class LcsDf(_BaseLcs, mutable=True):
         rcond: ArrayLike = 0.0,
         *,
         xp: ModuleType | None = None,
-    ):
+    ) -> None:
         super().__init__(reference, alpha, rcond, xp, _lcs_df_matrices)
 
 
@@ -603,5 +647,161 @@ class LcsDDf(_BaseLcs, mutable=True):
         rcond: ArrayLike = 0.0,
         *,
         xp: ModuleType | None = None,
-    ):
+    ) -> None:
         super().__init__(reference, alpha, rcond, xp, _lcs_ddf_matrices)
+
+
+# ------------------------------------ old methods ----------------------------------- #
+
+
+# def create_lcs_matrices(xp):
+#     def lcs_matrices(reference):
+#         assert reference.ndim >= 3
+#         gradient = xp.gradient(reference, axis=(-2, -1))
+#         matrices = xp.stack((reference, -gradient[0], -gradient[1]), axis=-1)
+#         order = tuple(range(matrices.ndim - 4)) + (-3, -2, -4, -1)
+#         return matrices.transpose(order)
+#         # return xp.moveaxis(matrices, -4, -2) # TODO nin17: see if transpose is faster
+
+#     return lcs_matrices
+
+
+# def create_lcs_vectors():
+#     def lcs_vectors(sample):
+#         assert sample.ndim >= 3
+#         return sample.transpose(tuple(range(sample.ndim - 3)) + (-2, -1, -3))
+
+#     return lcs_vectors
+
+
+# def create_lcs(
+#     lcs_matrices,
+#     lcs_vectors,
+#     solver,
+#     implicit_tracking,
+#     jax=False,
+#     numba=False,
+# ):
+#     if sum((jax, numba)) > 1:
+#         raise ValueError("Only one of jax or numba can be True")
+#     if not jax and not numba:
+
+#         def lcs(sample, reference, weak_absorption=True, m=None, n=None, **kwargs):
+#             matrices = lcs_matrices(reference)
+#             vectors = lcs_vectors(sample)
+
+#             kwargs = {"a": 1, "b": 2} | kwargs
+
+#             if all(i is not None for i in (m, n)):
+#                 result = implicit_tracking(matrices, vectors, m, n, **kwargs)
+#             else:
+#                 kwargs.pop("a", None)
+#                 kwargs.pop("b", None)
+#                 result = solver(matrices, vectors, **kwargs)
+
+#             if weak_absorption:
+#                 return result
+#             result[..., 1:] /= result[..., :1]
+#             return result
+
+#         return lcs
+#     if jax:
+
+#         def lcs_jax(reference, sample, weak_absorption=True, **kwargs):
+#             matrices = lcs_matrices(reference)
+#             vectors = lcs_vectors(sample)
+#             result = solver(matrices, vectors, **kwargs)
+#             if weak_absorption:
+#                 return result
+#             result = result.at[..., 1:].divide(result[..., :1])
+#             return result
+
+#     if numba:
+#         nb = importlib.import_module("numba")
+#         np = importlib.import_module("numpy")
+
+#         # TODO refactor to use guvectorize when it is supported in a jit function
+
+#         @nb.extending.register_jitable
+#         def lcs_numba(reference, sample, weak_absorption=True, alpha=0.0, **kwargs):
+#             assert reference.shape == sample.shape
+#             assert reference.ndim == 3
+#             x, y, z = reference.shape
+#             matrices = np.empty((y, z, x, 3), dtype=np.float64)
+#             out = np.empty((y, z, 3), dtype=np.float64)
+#             # TODO check this alpha stuff
+#             # alpha = np.asarray(alpha, dtype=np.float64)
+#             # alpha = alpha.reshape(alpha.shape + [1 for _ in range(matrices.ndim - alpha.ndim)])
+#             alpha_identity = alpha * np.identity(3, dtype=np.float64)
+
+#             sample = sample.transpose(1, 2, 0).copy()
+#             # TODO nin17: edges
+#             for j in nb.prange(1, y - 1):
+#                 for k in range(1, z - 1):
+#                     for i in range(x):
+#                         matrices[j, k, i, 0] = reference[i, j, k]
+#                         matrices[j, k, i, 1] = (
+#                             -reference[i, j + 1, k] + reference[i, j - 1, k]
+#                         ) / 2.0
+#                         matrices[j, k, i, 2] = (
+#                             -reference[i, j, k + 1] + reference[i, j, k - 1]
+#                         ) / 2.0
+
+#             for j in nb.prange(1, y - 1):
+#                 for k in range(1, z - 1):
+#                     a = matrices[j, k]
+#                     ata = (a.T @ a) + alpha_identity
+#                     atb = a.T @ sample[j, k]
+#                     out[j, k] = np.linalg.solve(ata, atb)
+
+#             if weak_absorption:
+#                 return out
+
+#             for i in nb.prange(1, y - 1):
+#                 for j in range(1, z - 1):
+#                     out[i, j, 1:] /= out[i, j, 0]
+
+#             return out
+
+#         return lcs_numba
+
+#     return lcs_jax
+
+
+# def create_lcs_df_matrices(xp, laplace):
+#     def lcs_matrices(reference):
+#         assert reference.ndim >= 3
+#         gradient = xp.gradient(reference, axis=(-2, -1))
+#         laplacian = laplace(reference)
+#         matrices = xp.stack((reference, -gradient[0], -gradient[1], laplacian), axis=-1)
+#         order = tuple(range(matrices.ndim - 4)) + (-3, -2, -4, -1)
+#         return matrices.transpose(order)
+#         # return xp.moveaxis(matrices, -4, -2) # TODO nin17: see if transpose is faster
+
+#     return lcs_matrices
+
+
+# def create_lcs_df(lcs_df_matrices, lcs_df_vectors, solver):
+#     def lcs(reference, sample, weak_absorption=True, m=None, n=None, **kwargs):
+#         matrices = lcs_df_matrices(reference)
+#         vectors = lcs_df_vectors(sample)
+
+#         kwargs = {"a": 1, "b": 2} | kwargs
+
+#         if all(i is not None for i in (m, n)):
+#             # result = implicit_tracking(matrices, vectors, m, n, **kwargs)
+#             pass
+#             # TODO nin17: lcs_df tracking
+#         else:
+#             kwargs.pop("a", None)
+#             kwargs.pop("b", None)
+#             result = solver(matrices, vectors, **kwargs)
+#         # result = solver(matrices, vectors, **kwargs)
+
+#         if weak_absorption:
+#             return result
+#         result[..., 1:] /= result[..., :1]
+#         return result
+
+#     return lcs
+#     return lcs

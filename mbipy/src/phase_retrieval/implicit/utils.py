@@ -1,6 +1,86 @@
-"""
-"""
+""" """
 
+from array_api_compat import is_jax_namespace
+
+from mbipy.src.utils import array_namespace
+
+
+def laplace32(image_stack):
+    # TODO(nin17): use iadd & use work arrays to compute intermediate terms
+    xp = array_namespace(image_stack)
+    output = xp.zeros_like(image_stack)
+
+    if is_jax_namespace(xp):
+        output = output.at[..., 1:-1, :, :].add(
+            image_stack[..., :-2, :, :]
+            + image_stack[..., 2:, :, :]
+            - (2 * image_stack[..., 1:-1, :, :]),
+        )
+        output = output.at[..., 1:-1, :].add(
+            image_stack[..., :-2, :]
+            + image_stack[..., 2:, :]
+            - (2 * image_stack[..., 1:-1, :]),
+        )
+        output = output.at[..., 0, :, :].add(
+            image_stack[..., 0, :, :]
+            + image_stack[..., 1, :, :]
+            - 2 * image_stack[..., 0, :, :],
+        )
+        output = output.at[..., -1, :, :].add(
+            image_stack[..., -1, :, :]
+            + image_stack[..., -2, :, :]
+            - 2 * image_stack[..., -1, :, :],
+        )
+        output = output.at[..., 0, :].add(
+            image_stack[..., 0, :]
+            + image_stack[..., 1, :]
+            - 2 * image_stack[..., 0, :],
+        )
+        output = output.at[..., -1, :].add(
+            image_stack[..., -1, :]
+            + image_stack[..., -2, :]
+            - 2 * image_stack[..., -1, :],
+        )
+    else:
+        output[..., 1:-1, :, :] += (
+            image_stack[..., :-2, :, :]
+            + image_stack[..., 2:, :, :]
+            - (2 * image_stack[..., 1:-1, :, :])
+        )
+        output[..., 1:-1, :] += (
+            image_stack[..., :-2, :]
+            + image_stack[..., 2:, :]
+            - 2 * image_stack[..., 1:-1, :]
+        )
+        output[..., 0, :, :] += (
+            image_stack[..., 0, :, :]
+            + image_stack[..., 1, :, :]
+            - 2 * image_stack[..., 0, :, :]
+        )
+        output[..., -1, :, :] += (
+            image_stack[..., -1, :, :]
+            + image_stack[..., -2, :, :]
+            - 2 * image_stack[..., -1, :, :]
+        )
+        output[..., 0, :] += (
+            image_stack[..., 0, :] + image_stack[..., 1, :] - 2 * image_stack[..., 0, :]
+        )
+        output[..., -1, :] += (
+            image_stack[..., -1, :]
+            + image_stack[..., -2, :]
+            - 2 * image_stack[..., -1, :]
+        )
+    return output
+
+
+def is_invertible(matrix_stack):
+    xp = array_namespace(matrix_stack)
+    if matrix_stack.shape[-2] != matrix_stack.shape[-1]:
+        msg = "Matrices must be square"
+        raise ValueError(msg)
+    return xp.linalg.matrix_rank(matrix_stack) == matrix_stack.shape[-1]
+
+# ------------------------------------ not needed ------------------------------------ #
 
 def create_tikhonov_stack(xp):
     def tikhonov_stack(matrices, vectors, *, alpha):
@@ -38,7 +118,7 @@ def create_tikhonov_stack(xp):
         assert alpha.ndim <= matrices.ndim - 2
 
         alpha_05 = xp.sqrt(alpha).reshape(
-            alpha.shape + (1,) * (matrices.ndim - alpha.ndim)
+            alpha.shape + (1,) * (matrices.ndim - alpha.ndim),
         )
         identity = xp.identity(n).reshape((1,) * (matrices.ndim - 2) + (n, n))
 
@@ -87,7 +167,7 @@ def create_normal_stack(xp):
 
         alpha = alpha.reshape(alpha.shape + (1,) * (matrices.ndim - alpha.ndim))
         # if use_einsum:
-        ata = xp.einsum("...ij, ...ik", matrices, matrices, optimize="optimal")
+        ata = xp.einsum("...ij, ...ik", matrices.conj(), matrices, optimize="optimal")
         # else:
         #     ata = (
         #         matrices.transpose((tuple(range(matrices.ndim - 2)) + (-1, -2)))
@@ -97,7 +177,7 @@ def create_normal_stack(xp):
         # ??? nin17 Is there a faster way to do this too?
         # (matrices.transpose((tuple(range(matrices.ndim - 2)) + (-1, -2))) @ vectors[..., None]).squeeze(-1)
         if matrices.ndim == vectors.ndim + 1:
-            atb = xp.einsum("...ij, ...i", matrices, vectors)
+            atb = xp.einsum("...ij, ...i", matrices.conj(), vectors)
         elif matrices.ndim == vectors.ndim:
             atb = xp.einsum("...ij, ...ik->...jk", matrices, vectors)
         return atai, atb
@@ -143,7 +223,7 @@ def create_lstsq_solver(solvers, normal_stack, tikhonov_stack):
             method = "normal"
         if method not in solvers:
             raise ValueError(
-                f"Invalid method: {method}. Valid methods: {solvers.keys()}"
+                f"Invalid method: {method}. Valid methods: {solvers.keys()}",
             )
 
         if method in {"cholesky", "inv", "normal"}:
@@ -181,12 +261,12 @@ def create_implicit_tracking(xp, swv, solver):
             result = solver(matrices, vectors, **kwargs)
             residuals = xp.einsum("...ij, ...jk->...ik", matrices, result) - vectors
             print(residuals.shape)
-            minimum = (residuals**2.0).sum(axis=-2).argmin(axis=-1)
+            minimum = (residuals * residuals.conj()).sum(axis=-2).argmin(axis=-1)
         else:
             # !!! OLD
             matrices = matrices[..., m:-m, n:-n, None, None, :, :]
             vectors = swv(vectors, (_m, _n), axis=(-3, -2)).transpose(
-                tuple(range(vectors.ndim - 3)) + (-5, -4, -2, -1, -3)
+                tuple(range(vectors.ndim - 3)) + (-5, -4, -2, -1, -3),
             )
             vectors = vectors[..., a::b, a::b, :]
             result = solver(matrices, vectors, **kwargs)
@@ -194,7 +274,7 @@ def create_implicit_tracking(xp, swv, solver):
             residuals = xp.einsum("...ij, ...j", matrices, result) - vectors
 
             minimum = (
-                (residuals**2.0)
+                (residuals * residuals.conj())
                 .sum(axis=-1)
                 .reshape(residuals.shape[:-3] + (-1,))
                 .argmin(axis=-1)
@@ -241,28 +321,28 @@ def create_laplace(xp):
             output = output.at[..., 1:-1, :].add(
                 image_stack[..., :-2, :]
                 + image_stack[..., 2:, :]
-                - (2 * image_stack[..., 1:-1, :])
+                - (2 * image_stack[..., 1:-1, :]),
             )
             output = output.at[..., 1:-1].add(
                 image_stack[..., :-2]
                 + image_stack[..., 2:]
-                - (2 * image_stack[..., 1:-1])
+                - (2 * image_stack[..., 1:-1]),
             )
             output = output.at[..., 0, :].add(
                 image_stack[..., 0, :]
                 + image_stack[..., 1, :]
-                - 2 * image_stack[..., 0, :]
+                - 2 * image_stack[..., 0, :],
             )
             output = output.at[..., -1, :].add(
                 image_stack[..., -1, :]
                 + image_stack[..., -2, :]
-                - 2 * image_stack[..., -1, :]
+                - 2 * image_stack[..., -1, :],
             )
             output = output.at[..., 0].add(
-                image_stack[..., 0] + image_stack[..., 1] - 2 * image_stack[..., 0]
+                image_stack[..., 0] + image_stack[..., 1] - 2 * image_stack[..., 0],
             )
             output = output.at[..., -1].add(
-                image_stack[..., -1] + image_stack[..., -2] - 2 * image_stack[..., -1]
+                image_stack[..., -1] + image_stack[..., -2] - 2 * image_stack[..., -1],
             )
             return output
 
@@ -307,46 +387,34 @@ def create_isinvertible(xp):
             raise ValueError("Matrices must be square")
         return xp.linalg.matrix_rank(matrix_stack) == matrix_stack.shape[-1]
 
-
-from ...utils import array_namespace
-
-
-def is_invertible(matrix_stack):
-    xp = array_namespace(matrix_stack)
-    if matrix_stack.shape[-2] != matrix_stack.shape[-1]:
-        raise ValueError("Matrices must be square")
-    return xp.linalg.matrix_rank(matrix_stack) == matrix_stack.shape[-1]
-
-
 def laplace(image_stack):
+    # TODO(nin17): change to axes = (-3, -2)
     xp = array_namespace(image_stack)
     output = xp.zeros_like(image_stack)
-    if "jax"    in xp.__name__:
+    if is_jax_namespace(xp):
         output = output.at[..., 1:-1, :].add(
             image_stack[..., :-2, :]
             + image_stack[..., 2:, :]
-            - (2 * image_stack[..., 1:-1, :])
+            - (2 * image_stack[..., 1:-1, :]),
         )
         output = output.at[..., 1:-1].add(
-            image_stack[..., :-2]
-            + image_stack[..., 2:]
-            - (2 * image_stack[..., 1:-1])
+            image_stack[..., :-2] + image_stack[..., 2:] - (2 * image_stack[..., 1:-1]),
         )
         output = output.at[..., 0, :].add(
             image_stack[..., 0, :]
             + image_stack[..., 1, :]
-            - 2 * image_stack[..., 0, :]
+            - 2 * image_stack[..., 0, :],
         )
         output = output.at[..., -1, :].add(
             image_stack[..., -1, :]
             + image_stack[..., -2, :]
-            - 2 * image_stack[..., -1, :]
+            - 2 * image_stack[..., -1, :],
         )
         output = output.at[..., 0].add(
-            image_stack[..., 0] + image_stack[..., 1] - 2 * image_stack[..., 0]
+            image_stack[..., 0] + image_stack[..., 1] - 2 * image_stack[..., 0],
         )
         output = output.at[..., -1].add(
-            image_stack[..., -1] + image_stack[..., -2] - 2 * image_stack[..., -1]
+            image_stack[..., -1] + image_stack[..., -2] - 2 * image_stack[..., -1],
         )
     else:
         output[..., 1:-1, :] += (
@@ -355,14 +423,10 @@ def laplace(image_stack):
             - (2 * image_stack[..., 1:-1, :])
         )
         output[..., 1:-1] += (
-            image_stack[..., :-2]
-            + image_stack[..., 2:]
-            - 2 * image_stack[..., 1:-1]
+            image_stack[..., :-2] + image_stack[..., 2:] - 2 * image_stack[..., 1:-1]
         )
         output[..., 0, :] += (
-            image_stack[..., 0, :]
-            + image_stack[..., 1, :]
-            - 2 * image_stack[..., 0, :]
+            image_stack[..., 0, :] + image_stack[..., 1, :] - 2 * image_stack[..., 0, :]
         )
         output[..., -1, :] += (
             image_stack[..., -1, :]
