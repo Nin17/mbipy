@@ -1,15 +1,6 @@
-__all__ = (
-    "create_li",
-    "create_li_matrix",
-    "create_li_vectors",
-    "create_southwell",
-    "create_southwell_matrix",
-    "create_southwell_vectors",
-)
+"""Normal integration using sparse least squares methods."""
 
-from .li import create_li, create_li_matrix, create_li_vectors
-from .southwell import (
-    create_southwell,
-    create_southwell_matrix,
-    create_southwell_vectors,
-)
+__all__ = ("Li", "Southwell", "li", "southwell")
+
+from .li import Li, li
+from .southwell import Southwell, southwell

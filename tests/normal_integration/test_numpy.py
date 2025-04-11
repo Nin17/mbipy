@@ -1,26 +1,41 @@
-"""_summary_
-"""
+"""Tests for normal integration functions with numpy."""
 
 import numpy as np
 
-from .utils import ArnisonTest, DctPoissonTest, DstPoissonTest, FrankotTest, KottlerTest
+from .utils import (
+    _Test_arnison,
+    _Test_dct_poisson,
+    _Test_dst_poisson,
+    _Test_frankot,
+    _Test_kottler,
+    _Test_li,
+    _Test_southwell,
+)
 
 
-class TestArnison(ArnisonTest):
+class Test_arnison(_Test_arnison):
     xp = np
 
 
-class TestKottler(KottlerTest):
+class Test_kottler(_Test_kottler):
     xp = np
 
 
-class TestFrankot(FrankotTest):
+class Test_frankot(_Test_frankot):
     xp = np
 
 
-class TestDctPoisson(DctPoissonTest):
+class Test_dct_poisson(_Test_dct_poisson):
     xp = np
 
 
-class TestDstPoisson(DstPoissonTest):
+class Test_dst_poisson(_Test_dst_poisson):
+    xp = np
+
+
+class Test_li(_Test_li):
+    xp = np
+
+
+class Test_southwell(_Test_southwell):
     xp = np

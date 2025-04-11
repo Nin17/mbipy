@@ -1,5 +1,4 @@
-"""_summary_
-"""
+"""Test normal integration functions using cupy."""
 
 try:
     import cupy as cp
@@ -11,29 +10,35 @@ except ImportError:
 
 import pytest
 
-from .utils import ArnisonTest, DctPoissonTest, DstPoissonTest, FrankotTest, KottlerTest
+from .utils import (
+    _Test_arnison,
+    _Test_dct_poisson,
+    _Test_dst_poisson,
+    _Test_frankot,
+    _Test_kottler,
+)
 
 
 @pytest.mark.skipif(not _have_cupy, reason="Cupy is not installed")
-class TestArnison(ArnisonTest):
+class Test_arnison(_Test_arnison):
     xp = cp
 
 
 @pytest.mark.skipif(not _have_cupy, reason="Cupy is not installed")
-class TestKottler(KottlerTest):
+class Test_kottler(_Test_kottler):
     xp = cp
 
 
 @pytest.mark.skipif(not _have_cupy, reason="Cupy is not installed")
-class TestFrankot(FrankotTest):
+class Test_frankot(_Test_frankot):
     xp = cp
 
 
 @pytest.mark.skipif(not _have_cupy, reason="Cupy is not installed")
-class TestDctPoisson(DctPoissonTest):
+class Test_dct_poisson(_Test_dct_poisson):
     xp = cp
 
 
 @pytest.mark.skipif(not _have_cupy, reason="Cupy is not installed")
-class TestDstPoisson(DstPoissonTest):
+class Test_dst_poisson(_Test_dst_poisson):
     xp = cp

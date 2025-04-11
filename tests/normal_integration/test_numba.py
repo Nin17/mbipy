@@ -1,3 +1,7 @@
+"""Tests for normal integration functions with Numba."""
+
+from functools import cached_property
+
 import numpy as np
 import pytest
 
@@ -8,61 +12,57 @@ try:
 except ImportError:
     _have_numba = False
 
-from .utils import ArnisonTest, DctPoissonTest, DstPoissonTest, FrankotTest, KottlerTest
 
-# def xfail(*funcs):
-#     def decorator(cls):
-        
-#         @property
-#         def _func(self):
-#             return njit(
-#                 super(cls, self).func,
-#             )
-        
-#         for i in funcs:
-#             _func = getattr(cls, i)
-#             setattr(cls, i, pytest.mark.xfail(raises=AssertionError)(_func))
-#         return cls
-#     return decorator
+from typing import Callable
+
+from .utils import (
+    _Test_arnison,
+    _Test_dct_poisson,
+    _Test_dst_poisson,
+    _Test_frankot,
+    _Test_kottler,
+)
 
 
-def jit(cls):
-    @property
-    def _func(self):
-        return njit(
-            super(cls, self).func,
-        )
+def jit(cls) -> Callable:
+    """Wrap cls._func with Numba's jit decorator."""
 
-    cls.func = _func
+    @cached_property
+    def _jit(self) -> Callable:
+        """Wrap cls._func with Numba's jit decorator."""
+        return njit(super(cls, self)._func)#, cache=True)
+
+    cls._func = _jit
+    cls._func.__set_name__(cls, "_func")
 
     return cls
 
 
 @pytest.mark.skipif(not _have_numba, reason="Numba is not installed")
 @jit
-class TestArnison(ArnisonTest):
+class Test_arnison(_Test_arnison):
     xp = np
 
 
 @pytest.mark.skipif(not _have_numba, reason="Numba is not installed")
 @jit
-class TestKottler(KottlerTest):
+class Test_kottler(_Test_kottler):
     xp = np
 
 
 @pytest.mark.skipif(not _have_numba, reason="Numba is not installed")
 @jit
-class TestFrankot(FrankotTest):
+class Test_frankot(_Test_frankot):
     xp = np
 
 
 @pytest.mark.skipif(not _have_numba, reason="Numba is not installed")
 @jit
-class TestDctPoisson(DctPoissonTest):
+class Test_dct_poisson(_Test_dct_poisson):
     xp = np
 
-# @xfail("test_f32")
+
 @pytest.mark.skipif(not _have_numba, reason="Numba is not installed")
 @jit
-class TestDstPoisson(DstPoissonTest):
+class Test_dst_poisson(_Test_dst_poisson):
     xp = np

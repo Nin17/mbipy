@@ -12,9 +12,10 @@ __all__ = ("frankot",)
 
 from typing import TYPE_CHECKING
 
+from mbipy.src.normal_integration.fourier.utils import fft2, ifft2
 from mbipy.src.normal_integration.padding import antisym
-from mbipy.src.normal_integration.utils import check_shapes, get_dfts
-from mbipy.src.utils import array_namespace, setitem
+from mbipy.src.normal_integration.utils import check_shapes
+from mbipy.src.utils import array_namespace, cast_scalar, idiv, setitem
 
 if TYPE_CHECKING:
     from numpy import floating
@@ -26,15 +27,48 @@ def frankot(
     gx: NDArray[floating],
     pad: str | None = None,
     workers: int | None = None,
+    use_rfft: bool = True,
 ) -> NDArray[floating]:
-    # TODO(nin17): docstring
+    """Perform normal integration using the method of Frankot and Chellappa.
+
+    Frankot, R. T. & Chellappa, R. A method for enforcing integrability in shape
+    from shading algorithms.
+    IEEE Transactions on pattern analysis and machine intelligence 10, 439-451 (1988)
+
+    Parameters
+    ----------
+    gy : (..., M, N) NDArray[floating]
+        Vertical gradient(s).
+    gx : (..., M, N) NDArray[floating]
+        Horizontal gradient(s).
+    pad : str | None, optional
+        Type of padding to apply: "antisym" | None , by default None
+    workers : int | None, optional
+        Passed to scipy.fft fftn & ifftn, by default None
+    use_rfft : bool, optional
+        Use a rfftn instead of fftn, by default True
+
+    Returns
+    -------
+    NDArray[floating]
+        Normal field(s).
+
+    Raises
+    ------
+    ValueError
+        If the input arrays are not real-valued.
+    ValueError
+        If the pad argument is not None or "antisym".
+
+    """
     xp = array_namespace(gy, gx)
     dtype = xp.result_type(gy, gx)
     if not xp.isdtype(dtype, "real floating"):
         msg = "Input arrays must be real-valued."
         raise ValueError(msg)
-    fft2, ifft2 = get_dfts(xp)
     y, x = check_shapes(gx, gy)
+    y2, x2 = 2 * y if pad else y, 2 * x if pad else x
+    s = (y2, x2)
 
     if pad == "antisym":
         gy, gx = antisym(gy=gy, gx=gx)
@@ -44,16 +78,30 @@ def frankot(
         msg = f"Invalid value for pad: {pad}"
         raise ValueError(msg)
 
-    fx = xp.astype(xp.fft.fftfreq(2 * x if pad else x), dtype, copy=False)
-    fy = xp.astype(xp.fft.fftfreq(2 * y if pad else y)[:, None], dtype, copy=False)
+    if use_rfft:
+        fx = xp.astype(xp.fft.rfftfreq(x2), dtype, copy=False)
+    else:
+        fx = xp.astype(xp.fft.fftfreq(x2), dtype, copy=False)
+    fy = xp.astype(xp.fft.fftfreq(y2)[:, None], dtype, copy=False)
 
-    gx_fft = fft2(gx, axes=(-2, -1), workers=workers)
-    gy_fft = fft2(gy, axes=(-2, -1), workers=workers)
+    if use_rfft:
+        gx_fft = fft2(gx, s=s, workers=workers, use_rfft=use_rfft)
+        gy_fft = fft2(gy, s=s, workers=workers, use_rfft=use_rfft)
+    else:  # !!! use_rfft=None for Numba
+        gx_fft = fft2(gx, s=s, workers=workers, use_rfft=None)
+        gy_fft = fft2(gy, s=s, workers=workers, use_rfft=None)
 
+    # !!! Cast scalars to the same dtype as the result. Necessary for Numba.
+    two_j = cast_scalar(2j, xp.result_type(gx_fft, gy_fft))
+    pi = cast_scalar(xp.pi, dtype)
+    zero = cast_scalar(0.0, dtype)
+    one = cast_scalar(1.0, dtype)
+
+    # TODO(nin17): inplace
     f_num = fx * gx_fft + fy * gy_fft
-    f_den = 2j * xp.pi * (fx * fx + fy * fy)
-    # avoid division by zero warning
-    f_den = setitem(f_den, (..., 0, 0), 1.0, xp)
-    f_phase = f_num / f_den
-    f_phase = setitem(f_phase, (..., 0, 0), 0.0, xp)
-    return ifft2(f_phase, axes=(-2, -1), workers=workers).real[..., :y, :x]
+    f_den = two_j * pi * (fx * fx + fy * fy)
+
+    f_den = setitem(f_den, (..., 0, 0), one)  # avoid division by zero warning
+    f_phase = idiv(f_num, (...,), f_den)  # f_num is f_phase
+    f_phase = setitem(f_phase, (..., 0, 0), zero)
+    return ifft2(f_phase, s=s, workers=workers, use_rfft=use_rfft)[..., :y, :x]

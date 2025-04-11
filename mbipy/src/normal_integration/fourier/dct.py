@@ -10,11 +10,11 @@ from __future__ import annotations
 
 __all__ = ("dct_poisson",)
 
-
 from typing import TYPE_CHECKING
 
-from mbipy.src.normal_integration.utils import check_shapes, get_dcts, r_
-from mbipy.src.utils import array_namespace, isub, setitem
+from mbipy.src.normal_integration.fourier.utils import dct2, idct2
+from mbipy.src.normal_integration.utils import check_shapes
+from mbipy.src.utils import array_namespace, cast_scalar, isub, setitem
 
 if TYPE_CHECKING:
     from numpy import floating
@@ -22,20 +22,60 @@ if TYPE_CHECKING:
 
 
 def dct_poisson(
-    gy: NDArray[floating], gx: NDArray[floating], workers: int | None = None
+    gy: NDArray[floating],
+    gx: NDArray[floating],
+    workers: int | None = None,
 ) -> NDArray[floating]:
+    """Perform normal integration using the DCT solution to the poisson equation.
+
+    Parameters
+    ----------
+    gy : (..., M, N) NDArray[floating]
+        Vertical gradient(s).
+    gx : (..., M, N) NDArray[floating]
+        Horizontal gradient(s).
+    workers : int | None, optional
+        Passed to scipy.fft dctn & idctn, by default None
+
+    Returns
+    -------
+    NDArray[floating]
+        Normal field(s).
+
+    Raises
+    ------
+    ValueError
+        If the input arrays are not real-valued.
+
+    """
     xp = array_namespace(gy, gx)
     dtype = xp.result_type(gy, gx)
     if not xp.isdtype(dtype, "real floating"):
         msg = "Input arrays must be real-valued."
         raise ValueError(msg)
-    dctn, idctn = get_dcts(xp)
 
     sy, sx = check_shapes(gx, gy)
 
+    # !!! Cast scalars to the same dtype as the result. Necessary for Numba.
+    half = cast_scalar(0.5, dtype)
+    one = cast_scalar(1.0, dtype)
+    four = cast_scalar(4.0, dtype)
+
+    arange = xp.arange(max(sy, sx), dtype=xp.int64)
+
+    indices_y = xp.empty(sy + 2, dtype=xp.int64)
+    indices_y = setitem(indices_y, 0, 0)
+    indices_y = setitem(indices_y, -1, -1)
+    indices_y = setitem(indices_y, slice(1, -1), arange[:sy])
+
+    indices_x = xp.empty(sx + 2, dtype=xp.int64)
+    indices_x = setitem(indices_x, 0, 0)
+    indices_x = setitem(indices_x, -1, -1)
+    indices_x = setitem(indices_x, slice(1, -1), arange[:sx])
+
     # Divergence of (gy, gx) using central differences
-    qy = 0.5 * (gy[..., r_((1, sy), -1, xp), :] - gy[..., r_(0, (0, sy - 1), xp), :])
-    px = 0.5 * (gx[..., :, r_((1, sx), -1, xp)] - gx[..., :, r_(0, (0, sx - 1), xp)])
+    qy = half * (gy[..., indices_y[2:], :] - gy[..., indices_y[:-2], :])
+    px = half * (gx[..., :, indices_x[2:]] - gx[..., :, indices_x[:-2]])
 
     # Div(gy, gx)
     f = qy + px
@@ -43,138 +83,38 @@ def dct_poisson(
     # Modification near the boundaries to enforce the non-homogeneous Neumann
     # BC (Eq. 53 in [1])
     s1_1 = slice(1, -1)
+    f = isub(f, (..., 0, s1_1), gy[..., 0, s1_1])
+    f = isub(f, (..., -1, s1_1), gy[..., -1, s1_1])
+    f = isub(f, (..., s1_1, 0), gx[..., s1_1, 0])
+    f = isub(f, (..., s1_1, -1), gx[..., s1_1, -1])
+    # Equivalent to:
     # f[..., 0, 1:-1] -= gy[..., 0, 1:-1]
-    f = isub(f, (..., 0, s1_1), gy[..., 0, s1_1], xp)
     # f[..., -1, 1:-1] -= gy[..., -1, 1:-1]
-    f = isub(f, (..., -1, s1_1), gy[..., -1, s1_1], xp)
     # f[..., 1:-1, 0] -= gx[..., 1:-1, 0]
-    f = isub(f, (..., s1_1, 0), gx[..., s1_1, 0], xp)
     # f[..., 1:-1, -1] -= gx[..., 1:-1, -1]
-    f = isub(f, (..., s1_1, -1), gx[..., s1_1, -1], xp)
 
     # Modification near the corners (Eq. 54 in [1])
+    f = isub(f, (..., 0, -1), -gy[..., 0, 0] - gx[..., 0, 0])
+    f = isub(f, (..., -1, -1), gy[..., -1, -1] + gx[..., -1, -1])
+    f = isub(f, (..., -1, 0), gy[..., -1, 0] - gx[..., -1, 0])
+    f = isub(f, (..., 0, 0), -gy[..., 0, -1] + gx[..., 0, -1])
+    # Equivalent to:
     # f[..., 0, -1] -= -gy[..., 0, 0] - gx[..., 0, 0]
-    f = isub(f, (..., 0, -1), -gy[..., 0, 0] - gx[..., 0, 0], xp)
     # f[..., -1, -1] -= gy[..., -1, -1] + gx[..., -1, -1]
-    f = isub(f, (..., -1, -1), gy[..., -1, -1] + gx[..., -1, -1], xp)
     # f[..., -1, 0] -= gy[..., -1, 0] - gx[..., -1, 0]
-    f = isub(f, (..., -1, 0), gy[..., -1, 0] - gx[..., -1, 0], xp)
     # f[..., 0, 0] -= -gy[..., 0, -1] + gx[..., 0, -1]
-    f = isub(f, (..., 0, 0), -gy[..., 0, -1] + gx[..., 0, -1], xp)
 
-    fcos = dctn(f, axes=(-2, -1), workers=workers)
+    fcos = dct2(f, workers=workers)
 
     # dtype not supported in numba
     x = xp.astype(xp.linspace(0, xp.pi / 2, sx), dtype, copy=False)
     y = xp.astype(xp.linspace(0, xp.pi / 2, sy), dtype, copy=False)[:, None]
     # Faster to do * before + : x.size + y.size vs x.size * y.size
-    denom = 4.0 * xp.sin(x) ** 2 + 4.0 * xp.sin(y) ** 2
-    denom = setitem(denom, (0, 0), 1.0, xp)
+    sinx = xp.sin(x)
+    siny = xp.sin(y)
+
+    denom = (four * sinx * sinx) + (four * siny * siny)
+    denom = setitem(denom, (0, 0), one)
     z_bar_bar = -fcos / denom
 
-    return idctn(z_bar_bar, axes=(-2, -1), workers=workers)
-
-
-# def create_dct_poisson(xp, fft):
-#     """
-
-
-#     Parameters
-#     ----------
-#     xp : _type_
-#         _description_
-#     fft : _type_
-#         _description_
-
-#     Returns
-#     -------
-#     _type_
-#         _description_
-
-#     Raises
-#     ------
-#     ValueError
-#         _description_
-#     ValueError
-#         _description_
-#     """
-
-#     if xp.__name__ == "jax.numpy":
-
-#         def dct_poisson(*, gx, gy, **kwargs):
-#             sy, sx = check_shapes(gx, gy)
-
-#             # Divergence of (gy, gx) using central differences
-#             qy = 0.5 * (gy[..., xp.r_[1:sy, -1], :] - gy[..., xp.r_[0, : sy - 1], :])
-#             px = 0.5 * (gx[..., :, xp.r_[1:sx, -1]] - gx[..., :, xp.r_[0, : sx - 1]])
-
-#             # Div(gy, gx)
-#             f = qy + px
-
-#             # Modification near the boundaries to enforce the non-homogeneous Neumann
-#             # BC (Eq. 53 in [1])
-#             f = f.at[..., 0, 1:-1].add(-gy[..., 0, 1:-1])
-#             f = f.at[..., -1, 1:-1].add(-gy[..., -1, 1:-1])
-#             f = f.at[..., 1:-1, 0].add(-gx[..., 1:-1, 0])
-#             f = f.at[..., 1:-1, -1].add(-gx[..., 1:-1, -1])
-
-#             # Modification near the corners (Eq. 54 in [1])
-#             f = f.at[..., 0, -1].add(-(-gy[..., 0, 0] - gx[..., 0, 0]))
-#             f = f.at[..., -1, -1].add(-(gy[..., -1, -1] + gx[..., -1, -1]))
-#             f = f.at[..., -1, 0].add(-(gy[..., -1, 0] - gx[..., -1, 0]))
-#             f = f.at[..., 0, 0].add(-(-gy[..., 0, -1] + gx[..., 0, -1]))
-
-#             fcos = fft.dctn(f, axes=(-2, -1), **kwargs)
-
-#             x = xp.linspace(0, xp.pi / 2, sx, dtype=fcos.dtype)
-#             y = xp.linspace(0, xp.pi / 2, sy, dtype=fcos.dtype)[:, None]
-#             # Faster to do * before + : x.size + y.size vs x.size * y.size
-#             denom = 4.0 * xp.sin(x) ** 2 + 4.0 * xp.sin(y) ** 2
-#             # denom = denom.at[0, 0].set(xp.finfo(fcos.dtype).eps)
-#             z_bar_bar = -fcos / denom
-#             z_bar_bar = z_bar_bar.at[..., 0, 0].set(fcos[..., 0, 0])
-
-#             z = fft.idctn(z_bar_bar, axes=(-2, -1), **kwargs)
-
-#             return z
-
-#     else:
-
-#         def dct_poisson(*, gx, gy, **kwargs):
-#             sy, sx = check_shapes(gx, gy)
-#             # Divergence of (gy, gx) using central differences
-#             qy = 0.5 * (gy[..., xp.r_[1:sy, -1], :] - gy[..., xp.r_[0, : sy - 1], :])
-#             px = 0.5 * (gx[..., :, xp.r_[1:sx, -1]] - gx[..., :, xp.r_[0, : sx - 1]])
-
-#             # Div(gy, gx)
-#             f = qy + px
-
-#             # Modification near the boundaries to enforce the non-homogeneous Neumann
-#             # BC (Eq. 53 in [1])
-#             f[..., 0, 1:-1] -= gy[..., 0, 1:-1]
-#             f[..., -1, 1:-1] -= gy[..., -1, 1:-1]
-#             f[..., 1:-1, 0] -= gx[..., 1:-1, 0]
-#             f[..., 1:-1, -1] -= gx[..., 1:-1, -1]
-
-#             # Modification near the corners (Eq. 54 in [1])
-#             f[..., 0, -1] -= -gy[..., 0, 0] - gx[..., 0, 0]
-#             f[..., -1, -1] -= gy[..., -1, -1] + gx[..., -1, -1]
-#             f[..., -1, 0] -= gy[..., -1, 0] - gx[..., -1, 0]
-#             f[..., 0, 0] -= -gy[..., 0, -1] + gx[..., 0, -1]
-
-#             fcos = fft.dctn(f, axes=(-2, -1), **kwargs)
-
-#             x = xp.linspace(0, xp.pi / 2, sx, dtype=fcos.dtype)
-#             y = xp.linspace(0, xp.pi / 2, sy, dtype=fcos.dtype)[:, None]
-#             # Faster to do * before + : x.size + y.size vs x.size * y.size
-#             denom = 4.0 * xp.sin(x) ** 2 + 4.0 * xp.sin(y) ** 2
-#             denom[0, 0] = xp.finfo(fcos.dtype).eps
-#             z_bar_bar = -fcos / denom
-#             z_bar_bar[..., 0, 0] = fcos[..., 0, 0]
-
-#             z = fft.idctn(z_bar_bar, axes=(-2, -1), **kwargs)
-
-#             return z
-
-#     return dct_poisson
-#     return dct_poisson
+    return idct2(z_bar_bar, workers=workers)

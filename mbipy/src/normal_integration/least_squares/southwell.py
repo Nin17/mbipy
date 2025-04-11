@@ -1,116 +1,170 @@
+"""Normal integration using the method of Southwell.
+
+Southwell, W. Wave-front estimation from wave-front slope measurements.
+J. Opt. Soc. Am. 70, 998-1006.
+https://opg.optica.org/abstract.cfm?URI=josa-70-8-998 (Aug. 1980).
 """
-Southwell, W. Wave-front estimation from wave-front slope measurements. J. Opt. Soc. Am. 70, 998–1006. https://opg.optica.org/abstract.cfm?URI=josa-70-8-998 (Aug. 1980).
-"""
+
+from __future__ import annotations
+
+__all__ = ("Southwell", "southwell")
 
 import functools
+from typing import TYPE_CHECKING
 
-import numpy as np
+from mbipy.src.normal_integration.least_squares.utils import (
+    BaseSparseNormalIntegration,
+    csr_matrix,
+    factorized,
+)
+from mbipy.src.utils import array_namespace
 
+if TYPE_CHECKING:
+    from types import ModuleType
+    from typing import Callable
 
-def create_southwell_vectors(xp):
-    def southwell_vectors(*, gx, gy):
+    from numpy import floating
+    from numpy.typing import DTypeLike, NDArray
 
-        assert gx.shape == gy.shape
-        assert gx.ndim >= 2
+    from mbipy.src.config import __have_scipy__
 
-        new_shape = gx.shape[:-2] + (-1,)
-
-        sxf = (0.5 * (gx[..., 1:] + gx[..., :-1])).reshape(new_shape)
-        syf = (0.5 * (gy[..., :-1, :] + gy[..., 1:, :])).reshape(new_shape)
-
-        return xp.concatenate((sxf, syf), axis=-1)
-
-    return southwell_vectors
-
-
-def create_southwell_matrix(xp, sparse):
-    @functools.lru_cache()
-    def southwell_matrix(
-        shape: tuple[int, int], normal=False, idtype=np.int64, fdtype=np.float64
-    ):
-        """_summary_
-
-        Parameters
-        ----------
-        shape : tuple[int, int]
-            _description_
-
-        Returns
-        -------
-        Array
-            _description_
-        """
-        # TODO documentation
-        # Actually a sparse array - depending on xp
-
-        i, j = shape
-        n = i * j
-
-        rows1 = xp.arange(i * (j - 1), dtype=idtype)
-        columns1 = xp.arange(n, dtype=idtype)
-        if hasattr(xp, "lib"):
-            strides = columns1.strides[0]
-            columns1 = xp.lib.stride_tricks.as_strided(
-                columns1, shape=(i, j - 1), strides=(strides * j, strides)
-            ).ravel()
-        else:
-            columns1 = xp.delete(columns1, xp.arange(j - 1, n, j))
-
-        columns2 = xp.arange(j * (i - 1), dtype=idtype)
-        rows2 = columns2 + i * (j - 1)
-
-        data1 = xp.ones_like(rows1, dtype=fdtype)
-        data2 = xp.ones_like(rows2, dtype=fdtype)
-
-        # TODO variable names
-        # TODO can definitely do some of this without the concatenation
-        rowage = xp.concatenate((rows1, rows1, rows2, rows2))
-        columnage = xp.concatenate((columns1, columns1 + 1, columns2, columns2 + j))
-        dataage = xp.concatenate((-data1, data1, -data2, data2))
-        matrix = sparse.coo_matrix((dataage, (rowage, columnage)))  # .tocsr()
-        if normal:
-            return matrix.T @ matrix, matrix.T
-        return matrix
-
-    return southwell_matrix
+    if __have_scipy__:
+        from scipy.sparse import spmatrix
 
 
-def create_southwell(southwell_matrix, southwell_vectors, sparse):
-    def southwell(*, gx, gy, normal=False, **kwargs):
-        """_summary_
+def _southwell_vec(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
+    """Compute vector from gradient fields, based on the method of Southwell.
 
-        Parameters
-        ----------
-        gx : ArrayLike
-            _description_
-        gy : ArrayLike
-            _description_
+    Parameters
+    ----------
+    gy : (M, N) NDArray[floating]
+        Vertical gradient.
+    gx : (M, N) NDArray[floating]
+        Horizontal gradient.
 
-        Returns
-        -------
-        Array
-            _description_
-        """
-        assert gx.shape == gy.shape
-        assert gx.ndim == 2  # Don't think the solvers will do stacks of matrices
+    Returns
+    -------
+    (2MN - (M+N)) NDArray[floating]
+        Vector of size 2MN - (M+N), solve with sparse matrix for given image shape.
 
-        vectors = southwell_vectors(gx=gx, gy=gy)
+    """
+    xp = array_namespace(gy, gx)
+    shape = xp.broadcast_shapes(gy.shape, gx.shape)
+    result_type = xp.result_type(gy.dtype, gx.dtype)
+    i, j = shape
+    i_1 = i - 1
+    j_1 = j - 1
+    ij_1 = i * j_1
 
-        if not normal:
-            matrix = southwell_matrix(gx.shape)
-        else:
-            a_ta, a_t = southwell_matrix(gx.shape, normal=normal)
+    out = xp.empty(2 * i * j - i - j, dtype=result_type)
+    # 0.5 * (gx[:, 1:] + gx[:, :-1])
+    xp.add(gx[:, 1:], gx[:, :-1], out=xp.reshape(out[:ij_1], (i, j_1), copy=False))
+    # 0.5 * (gy[:-1, :] + gy[1:, :])
+    xp.add(gy[:-1, :], gy[1:, :], out=xp.reshape(out[ij_1:], (i_1, j), copy=False))
+    out /= 2.0
+    return out
 
-        if not normal:
-            return sparse.linalg.spsolve(
-                matrix.T @ matrix, matrix.T @ vectors, **kwargs
-            ).reshape(gx.shape)
-        return sparse.linalg.spsolve(a_ta, a_t @ vectors, **kwargs).reshape(gx.shape)
 
-        return sparse.linalg.lsqr(matrix, vectors, **kwargs)
-        # !!! really slow dunno why they suggest that
-        # return xp.linalg.lstsq(matrices.toarray(), vectors, **kwargs)
-        # !!! really slow dunno why they suggest that
-        # return xp.linalg.lstsq(matrices.toarray(), vectors, **kwargs)
+@functools.lru_cache
+def _southwell_matrix(
+    shape: tuple[int, int],
+    xp: ModuleType,
+    idtype: DTypeLike,
+    fdtype: DTypeLike,
+) -> spmatrix:
+    i, j = shape
+    n = i * j
+    ij_1 = i * (j - 1)
+    ji_1 = j * (i - 1)
+    stop = ij_1 + ji_1
+    array = xp.arange(stop, dtype=idtype)
 
-    return southwell
+    rows = xp.empty((2, stop), dtype=idtype)
+    rows[:] = array
+    rows = xp.reshape(rows, -1, copy=False)
+
+    cols = xp.empty((2, stop), dtype=idtype)
+    col_view1 = xp.reshape(cols[:, :ij_1], (2, i, j - 1), copy=False)
+    col_view1[:] = xp.reshape(array[:n], (i, j), copy=False)[:, :-1]
+    col_view1[1] += 1  # !!! to avoid copy in the above reshape
+    del col_view1  # Deletes the view, not the data - avoid accidental reuse
+    cols[0, ij_1:] = array[:ji_1]
+    cols[1, ij_1:] = array[j : i * j]
+    cols = xp.reshape(cols, -1, copy=False)
+
+    data = xp.empty((2, stop), dtype=fdtype)
+    data[0] = -1.0
+    data[1] = 1.0
+    data = xp.reshape(data, -1, copy=False)
+
+    return csr_matrix(data, rows, cols, shape=(stop, n))
+
+
+@functools.lru_cache
+def _southwell_factorized(
+    shape: tuple[int, int],
+    xp: ModuleType,
+    idtype: DTypeLike,
+    fdtype: DTypeLike,
+) -> tuple[Callable[[NDArray], NDArray], spmatrix]:
+    m = _southwell_matrix(shape, xp, idtype, fdtype)
+    mt = m.T
+    return factorized(mt @ m), mt
+
+
+def southwell(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
+    """Perform normal integration using the method of Southwell.
+
+    Southwell, W. Wave-front estimation from wave-front slope measurements.
+    J. Opt. Soc. Am. 70, 998-1006.
+    https://opg.optica.org/abstract.cfm?URI=josa-70-8-998 (Aug. 1980).
+
+    Parameters
+    ----------
+    gy : (M, N) NDArray[floating]
+        Vertical gradient.
+    gx : (M, N) NDArray[floating]
+        Horizontal gradient.
+
+    Returns
+    -------
+    (M, N) NDArray[floating]
+        Normal field.
+
+    """
+    xp = array_namespace(gy, gx)
+    shape = xp.broadcast_shapes(gy.shape, gx.shape)
+    i, j = shape
+    stop = 2 * i * j - i - j
+    idtype = xp.int32 if stop < xp.iinfo(xp.int32).max else xp.int64
+    fdtype = xp.result_type(gy.dtype, gx.dtype)
+
+    vector = _southwell_vec(gy, gx)
+
+    f, mt = _southwell_factorized(shape, xp, idtype, fdtype)
+
+    mt_vector = mt @ vector
+
+    return f(mt_vector).reshape(shape)
+
+
+class Southwell(BaseSparseNormalIntegration):
+    """Perform normal integration using the method of Southwell.
+
+    Southwell, W. Wave-front estimation from wave-front slope measurements.
+    J. Opt. Soc. Am. 70, 998-1006.
+    https://opg.optica.org/abstract.cfm?URI=josa-70-8-998 (Aug. 1980).
+    """
+
+    @staticmethod
+    def _mat_func(
+        shape: tuple[int, int],
+        xp: ModuleType,
+        idtype: DTypeLike,
+        fdtype: DTypeLike,
+    ) -> spmatrix:
+        return _southwell_matrix(shape, xp, idtype, fdtype)
+
+    @staticmethod
+    def _vec_func(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
+        return _southwell_vec(gy, gx)

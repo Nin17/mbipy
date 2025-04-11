@@ -1,5 +1,4 @@
-"""_summary_
-"""
+"""Normal integration using Fourier methods."""
 
 __all__ = ("arnison", "dct_poisson", "dst_poisson", "frankot", "kottler")
 

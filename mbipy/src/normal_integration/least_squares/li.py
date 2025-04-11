@@ -1,208 +1,231 @@
-"""
+"""Normal integration using the method of Li et al.
+
 Li, G., Li, Y., Liu, K., Ma, X. & Wang, H. Improving wavefront reconstruction
 accuracy by using integration equations with higher-order truncation errors in the
-Southwell geometry. J. Opt. Soc. Am. A 30, 1448–1459. https://opg.optica.org/josaa/abstract.cfm?URI=josaa-30-7-1448 (July 2013).
+Southwell geometry. J. Opt. Soc. Am. A 30, 1448-1459.
+https://opg.optica.org/josaa/abstract.cfm?URI=josaa-30-7-1448 (July 2013).
 """
 
 from __future__ import annotations
 
+__all__ = ("Li", "li")
+
 import functools
+from typing import TYPE_CHECKING
 
-import numpy as np
+from mbipy.src.normal_integration.least_squares.utils import (
+    BaseSparseNormalIntegration,
+    csr_matrix,
+    factorized,
+)
+from mbipy.src.utils import array_namespace
 
+if TYPE_CHECKING:
+    from types import ModuleType
+    from typing import Callable
 
-def create_li_vectors(xp):
-    def li_vectors(*, gx, gy):
+    from numpy import floating
+    from numpy.typing import DTypeLike, NDArray
 
-        assert gx.shape == gy.shape
-        assert gx.ndim >= 2
+    from mbipy.src.config import __have_scipy__
 
-        sy, sx = gx.shape[-2:]
-
-        newshape = gx.shape[:-2] + (-1,)
-
-        Sx = (
-            13
-            / 24
-            * (
-                gx[..., 1:-2]
-                - 1 / 13 * gx[..., :-3]
-                + gx[..., 2:-1]
-                - 1 / 13 * gx[..., 3:]
-            )
-        ).reshape(newshape)
-
-        Sy = (
-            13
-            / 24
-            * (
-                gy[..., 1:-2, :]
-                - 1 / 13 * gy[..., :-3, :]
-                + gy[..., 2:-1, :]
-                - 1 / 13 * gy[..., 3:, :]
-            )
-        ).reshape(newshape)
-
-        S_Sxf = (
-            (gx[..., (0, sx - 3)] + 4 * gx[..., (1, sx - 2)] + gx[..., (2, sx - 1)]) / 3
-        ).reshape(newshape, order="F")
-
-        S_Syf = (
-            (
-                gy[..., (0, sy - 3), :]
-                + 4 * gy[..., (1, sy - 2), :]
-                + gy[..., (2, sy - 1), :]
-            )
-            / 3
-        ).reshape(newshape)
-
-        return xp.concatenate((Sx, Sy, S_Sxf, S_Syf), axis=-1)
-
-    return li_vectors
+    if __have_scipy__:
+        from scipy.sparse import spmatrix
 
 
-def create_li_matrix(xp, sparse):
-    @functools.lru_cache()
-    def li_matrix(
-        shape: tuple[int, int], normal=False, idtype=np.int64, fdtype=np.float64
-    ):
-        """_summary_
+def _li_vec(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
+    """Compute vector from gradient fields, based on the method of Li et al.
 
-        Parameters
-        ----------
-        shape : tuple[int, int]
-            _description_
+    Parameters
+    ----------
+    gy : (M, N) NDArray[floating]
+        Vertical gradient.
+    gx : (M, N) NDArray[floating]
+        Horizontal gradient.
 
-        Returns
-        -------
-        Array
-            _description_
-        """
-        # TODO documentation
-        # TODO variable names
-        # TODO speed this up
-        I, J = shape
-        N = I * J
-        # For each row, the elements 0,j-1 and j-1 are not considered, because close to the boundary
-        rows = xp.arange(I * (J - 3), dtype=idtype)
-        columns = xp.arange(N, dtype=idtype)
-        to_delete = xp.concatenate(
-            (
-                xp.arange(0, N, J),
-                xp.arange(J - 1, N, J),
-                xp.arange(J - 2, N, J),
-            )
-        )
-        columns = xp.delete(columns, to_delete)
+    Returns
+    -------
+    (2MN - (M+N)) NDArray[floating]
+        Vector of size 2MN - (M+N), solve with sparse matrix for given image shape.
 
-        data1 = xp.ones_like(rows, dtype=fdtype)
+    """
+    xp = array_namespace(gy, gx)
+    shape = xp.broadcast_shapes(gy.shape, gx.shape)
+    result_type = xp.result_type(gy, gx)
+    i, j = shape
+    j_3 = j - 3
+    i_3 = i - 3
+    ij_3 = i * j_3
+    ji_3 = j * i_3
+    _s = ij_3 + ji_3
 
-        rows2 = xp.arange(I * (J - 3), I * (J - 3) + J * (I - 3), dtype=idtype)
-        columns2 = xp.arange(J, J * (I - 2), dtype=idtype)
-        data2 = xp.ones_like(rows2, dtype=fdtype)
+    out = xp.empty((_s + 2 * i + 2 * j), dtype=result_type)
 
-        # We implement additional boundary conditions: Simpson equations
-        off1 = I * (J - 3) + J * (I - 3)
-        rows4 = xp.arange(I, dtype=idtype)
-        data4 = xp.ones_like(rows4, dtype=fdtype)
+    w_size = max(ij_3, ji_3, 2 * i, 2 * j)
+    w = xp.empty(w_size, dtype=result_type)  # Work array - sliced for each operation
 
-        # Simpson conditions y direction
-        off2 = I * (J - 1) + J * (I - 3)
-        columns3 = xp.arange(J, dtype=idtype)
-        rows3 = columns3 + off2
-        data3 = xp.ones_like(rows3, dtype=fdtype)
+    w1 = w[:ij_3]
+    out1 = out[:ij_3]
+    # 13 / 24 * (gx[:, 1:-2] - 1 / 13 * gx[:, :-3] + gx[:, 2:-1] - 1 / 13 * gx[:, 3:])
+    xp.add(gx[:, 1:-2], gx[:, 2:-1], out=xp.reshape(out1, (i, j_3), copy=False))
+    xp.add(gx[:, :-3], gx[:, 3:], out=xp.reshape(w1, (i, j_3), copy=False))
+    w1 /= 13.0
+    out1 -= w1
+    # !!! Done later: out[:ij_3] *= 13 / 24
+    del w1, out1  # Deletes the views, not the data - avoid accidental reuse
 
-        # TODO this without concatenation
-        dataage = xp.concatenate(
-            (
-                -data1,
-                data1,
-                -data2,
-                data2,
-                -data4,
-                data4,
-                -data4,
-                data4,
-                -data3,
-                data3,
-                -data3,
-                data3,
-            )
-        )
+    w2 = w[:ji_3]
+    out2 = out[ij_3:_s]
+    # 13 / 24 * (gy[1:-2, :] - 1 / 13 * gy[:-3, :] + gy[2:-1, :] - 1 / 13 * gy[3:, :])
+    xp.add(gy[1:-2, :], gy[2:-1, :], out=xp.reshape(out2, (i_3, j), copy=False))
+    xp.add(gy[:-3, :], gy[3:, :], out=xp.reshape(w2, (i_3, j), copy=False))
+    w2 /= 13.0
+    out2 -= w2
+    out[:_s] *= 13.0 / 24.0  # !!! Here!
+    del w2, out2  # Deletes the views, not the data - avoid accidental reuse
 
-        rowage = xp.concatenate(
-            (
-                rows,
-                rows,
-                rows2,
-                rows2,
-                off1 + rows4,
-                off1 + rows4,
-                off1 + I + rows4,
-                off1 + I + rows4,
-                rows3,
-                rows3,
-                rows3 + J,
-                rows3 + J,
-            )
-        )
-        columnage = xp.concatenate(
-            (
-                columns,
-                columns + 1,
-                columns2,
-                columns2 + J,
-                rows4 * J,
-                rows4 * J + 2,
-                (rows4 + 1) * J - 3,
-                (rows4 + 1) * J - 1,
-                columns3,
-                columns3 + 2 * J,
-                columns3 + J * (I - 3),
-                columns3 + J * (I - 1),
-            )
-        )
-        matrix = sparse.coo_matrix((dataage, (rowage, columnage)))
-        if normal:
-            return matrix.T @ matrix, matrix.T
-        return matrix
+    w3 = w[: i * 2]
+    out3 = out[_s : _s + 2 * i]
+    # (gx[:, (0, -3)] + 4.0 * gx[:, (1, -2)] + gx[:, (2, -1)]) / 3.0
+    xp.add(gx[:, (0, -3)], gx[..., (2, -1)], out=xp.reshape(out3, (i, 2), copy=False))
+    xp.multiply(gx[..., (1, -2)], 4.0, out=xp.reshape(w3, (i, 2), copy=False))
+    out3 += w3
+    out3 /= 3.0
+    del w3, out3  # Deletes the views, not the data - avoid accidental reuse
 
-    return li_matrix
+    w4 = w[: 2 * j]
+    out4 = out[_s + 2 * i :]
+    # (gy[(0, -3), :] + 4.0 * gy[(1, -2), :] + gy[(2, -1), :]) / 3.0
+    xp.add(gy[(0, -3), :], gy[(2, -1), :], out=xp.reshape(out4, (2, j), copy=False))
+    xp.multiply(gy[(1, -2), :], 4.0, out=xp.reshape(w4, (2, j), copy=False))
+    out4 += w4
+    out4 /= 3.0
+    del w4, out4, w  # Deletes the views, not the data - avoid accidental reuse
+
+    return out
 
 
-def create_li(li_matrix, li_vectors, sparse):
-    def li(*, gx, gy, normal=False, **kwargs):
-        """_summary_
+@functools.lru_cache
+def _li_matrix(
+    shape: tuple[int, int],
+    xp: ModuleType,
+    idtype: DTypeLike,
+    fdtype: DTypeLike,
+) -> spmatrix:
+    i, j = shape
+    n = i * j
+    ij_1 = i * (j - 1)
+    ji_1 = j * (i - 1)
+    stop = ij_1 + ji_1
 
-        Parameters
-        ----------
-        gx : ArrayLike
-            _description_
-        gy : ArrayLike
-            _description_
+    ij_3 = i * (j - 3)
+    ji_3 = j * (i - 3)
 
-        Returns
-        -------
-        Array
-            _description_
-        """
-        assert gx.shape == gy.shape
-        assert gx.ndim == 2
-        assert gx.dtype == gy.dtype
-        assert gx.dtype.kind == "f"
+    _s = ij_3 + ji_3
 
-        vectors = li_vectors(gx=gx, gy=gy)
-        if not normal:
-            matrix = li_matrix(gx.shape) # TODO(nin17): idtype, fdtype, normal
-        else:
-            a_ta, a_t = li_matrix(gx.shape, normal=normal)
-        # ??? is matrices symmetric
-        # ??? sparse.linalg.lsqr
-        if not normal:
-            return sparse.linalg.spsolve(
-                matrix.T @ matrix, matrix.T @ vectors, **kwargs
-            ).reshape(gx.shape) # TODO(nin17): broadcasted result shape
-        else:
-            return sparse.linalg.spsolve(a_ta, a_t @ vectors, **kwargs).reshape(gx.shape)
+    array = xp.arange(stop, dtype=idtype)
 
-    return li
+    rows = xp.empty((2, stop), dtype=idtype)
+    rows[:] = array
+    rows = xp.reshape(rows, -1, copy=False)
+
+    cols = xp.empty((2, stop), dtype=idtype)
+    col_view1 = xp.reshape(cols[:, :ij_3], (2, i, j - 3), copy=False)
+    col_view1[:] = xp.reshape(array[:n], (i, j), copy=False)[:, 1:-2]
+    col_view1[1] += 1  # !!! to avoid copy in the above reshape
+    del col_view1  # Deletes the view, not the data - avoid accidental reuse
+
+    cols[0, ij_3:_s] = array[j : j * (i - 2)]
+    cols[1, ij_3:_s] = array[j + j : j * (i - 1)]
+
+    cols[0, _s : _s + i] = array[: i * j : j]
+    cols[1, _s : _s + i] = array[2 : i * j + 2 : j]
+
+    cols[0, _s + i : _s + 2 * i] = array[j - 3 : i * j - 2 : j]
+    cols[1, _s + i : _s + 2 * i] = array[j - 1 : i * j : j]
+
+    cols[0, _s + 2 * i : _s + 2 * i + j] = array[:j]
+    cols[1, _s + 2 * i : _s + 2 * i + j] = array[j * 2 : j * 3]
+
+    cols[0, _s + 2 * i + j :] = array[j * (i - 3) : j * (i - 2)]
+    cols[1, _s + 2 * i + j :] = array[j * (i - 1) : j * i]
+    cols = xp.reshape(cols, -1, copy=False)
+
+    data = xp.empty((2, stop), dtype=fdtype)
+    data[0] = -1.0
+    data[1] = 1.0
+    data = xp.reshape(data, -1, copy=False)
+
+    return csr_matrix(data, rows, cols, shape=(stop, n))
+
+
+@functools.lru_cache
+def _li_factorized(
+    shape: tuple[int, int],
+    xp: ModuleType,
+    idtype: DTypeLike,
+    fdtype: DTypeLike,
+) -> tuple[Callable[[NDArray], NDArray], spmatrix]:
+    m = _li_matrix(shape, xp, idtype, fdtype)
+    mt = m.T
+    return factorized(mt @ m), mt
+
+
+def li(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
+    """Perform normal integration using the method of Li et al.
+
+    Li, G., Li, Y., Liu, K., Ma, X. & Wang, H. Improving wavefront reconstruction
+    accuracy by using integration equations with higher-order truncation errors in the
+    Southwell geometry. J. Opt. Soc. Am. A 30, 1448-1459.
+    https://opg.optica.org/josaa/abstract.cfm?URI=josaa-30-7-1448 (July 2013).
+
+    Parameters
+    ----------
+    gy : (M, N) NDArray[floating]
+        Vertical gradient.
+    gx : (M, N) NDArray[floating]
+        Horizontal gradient.
+
+    Returns
+    -------
+    (M, N) NDArray[floating]
+        Normal field.
+
+    """
+    xp = array_namespace(gy, gx)
+    shape = xp.broadcast_shapes(gy.shape, gx.shape)
+    i, j = shape
+    stop = 2 * i * j - i - j
+    idtype = xp.int32 if stop < xp.iinfo(xp.int32).max else xp.int64
+    fdtype = xp.result_type(gy.dtype, gx.dtype)
+
+    vector = _li_vec(gy, gx)
+
+    f, mt = _li_factorized(shape, xp, idtype, fdtype)
+
+    mt_vector = mt @ vector
+
+    return f(mt_vector).reshape(shape)
+
+
+class Li(BaseSparseNormalIntegration):
+    """Perform normal integration using the method of Li et al.
+
+    Li, G., Li, Y., Liu, K., Ma, X. & Wang, H. Improving wavefront reconstruction
+    accuracy by using integration equations with higher-order truncation errors in the
+    Southwell geometry. J. Opt. Soc. Am. A 30, 1448-1459.
+    https://opg.optica.org/josaa/abstract.cfm?URI=josaa-30-7-1448 (July 2013).
+    """
+
+    @staticmethod
+    def _mat_func(
+        shape: tuple[int, int],
+        xp: ModuleType,
+        idtype: DTypeLike,
+        fdtype: DTypeLike,
+    ) -> spmatrix:
+        return _li_matrix(shape, xp, idtype, fdtype)
+
+    @staticmethod
+    def _vec_func(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
+        return _li_vec(gy, gx)

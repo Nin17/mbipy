@@ -13,16 +13,13 @@ __all__ = ("dst_poisson",)
 
 from typing import TYPE_CHECKING
 
-from mbipy.src.config import __have_scipy__
-from mbipy.src.normal_integration.utils import check_shapes, r_
-from mbipy.src.utils import array_namespace
+from mbipy.src.normal_integration.fourier.utils import dst2, idst2
+from mbipy.src.normal_integration.utils import check_shapes
+from mbipy.src.utils import array_namespace, cast_scalar, isub, setitem
 
 if TYPE_CHECKING:
     from numpy import floating
     from numpy.typing import NDArray
-
-if __have_scipy__:
-    from scipy import fft
 
 
 def dst_poisson(
@@ -31,151 +28,103 @@ def dst_poisson(
     ub: NDArray[floating] | None = None,
     workers: int | None = None,
 ) -> NDArray[floating]:
-    # !!! Only compatible with NumPy/SciPy & Numba as other libraries lack type-1 DST
+    """Perform normal integration using the DST solution to the poisson equation.
+
+    Parameters
+    ----------
+    gy : (..., M, N) NDArray[floating]
+        Vertical gradient(s).
+    gx : (..., M, N) NDArray[floating]
+        Horizontal gradient(s).
+    ub : (..., M, N) NDArray[floating] | None, optional
+        Boundary value(s), by default None
+    workers : int | None, optional
+        Passed to scipy.fft dstn & idstn, by default None
+
+    Returns
+    -------
+    NDArray[floating]
+        Normal field(s).
+
+    Raises
+    ------
+    ValueError
+        If the input arrays are not real-valued.
+
+    """
     xp = array_namespace(gx, gy)
     dtype = xp.result_type(gy, gx)
     if not xp.isdtype(dtype, "real floating"):
         msg = "Input arrays must be real-valued."
         raise ValueError(msg)
+    # !!! Slower algorithm if not using SciPy or Numba: doubles the array size
     sy, sx = check_shapes(gx, gy)
     if ub is not None:
         result_shape = xp.broadcast_shapes(gy.shape, gx.shape, ub.shape)
     else:
         result_shape = xp.broadcast_shapes(gy.shape, gx.shape)
-    qy = 0.5 * (gy[..., r_((1, sy), -1, xp), :] - gy[..., r_(0, (0, sy - 1), xp), :])
-    px = 0.5 * (gx[..., :, r_((1, sx), -1, xp)] - gx[..., :, r_(0, (0, sx - 1), xp)])
+
+    # !!! Cast scalars to the same dtype as the result. Necessary for Numba.
+    half = cast_scalar(0.5, dtype)
+    four = cast_scalar(4.0, dtype)
+
+    arange = xp.arange(max(sy, sx), dtype=xp.int64)
+
+    indices_y = xp.empty(sy + 2, dtype=xp.int64)
+    indices_y = setitem(indices_y, 0, 0)
+    indices_y = setitem(indices_y, -1, -1)
+    indices_y = setitem(indices_y, slice(1, -1), arange[:sy])
+
+    indices_x = xp.empty(sx + 2, dtype=xp.int64)
+    indices_x = setitem(indices_x, 0, 0)
+    indices_x = setitem(indices_x, -1, -1)
+    indices_x = setitem(indices_x, slice(1, -1), arange[:sx])
+
+    qy = half * (gy[..., indices_y[2:], :] - gy[..., indices_y[:-2], :])
+    px = half * (gx[..., :, indices_x[2:]] - gx[..., :, indices_x[:-2]])
 
     f = qy + px
 
     if ub is not None:
         # Modification near the boundaries (Eq. 46 in [1])
-        f[..., 1, 2:-2] -= ub[..., 0, 2:-2]
-        f[..., -2, 2:-2] -= ub[..., -1, 2:-2]
-        f[..., 2:-2, 1] -= ub[..., 2:-2, 0]
-        f[..., 2:-2, -2] -= ub[..., 2:-2, -1]
+        s2_2 = slice(2, -2)
+        f = isub(f, (..., 1, s2_2), ub[..., 0, s2_2])
+        f = isub(f, (..., -2, s2_2), ub[..., -1, s2_2])
+        f = isub(f, (..., s2_2, 1), ub[..., s2_2, 0])
+        f = isub(f, (..., s2_2, -2), ub[..., s2_2, -1])
+        # Equivalent to:
+        # f[..., 1, 2:-2] -= ub[..., 0, 2:-2]
+        # f[..., -2, 2:-2] -= ub[..., -1, 2:-2]
+        # f[..., 2:-2, 1] -= ub[..., 2:-2, 0]
+        # f[..., 2:-2, -2] -= ub[..., 2:-2, -1]
 
-        # Modification near the corners (Eq. 47 in [1])
-        f[..., 1, 1] -= ub[..., 1, 0] + ub[..., 0, 1]
-        f[..., 1, -2] -= ub[..., 1, -1] + ub[..., 0, -2]
-        f[..., -2, -2] -= ub[..., -2, -1] + ub[..., -1, -2]
-        f[..., -2, 1] -= ub[..., -2, 0] + ub[..., -1, 1]
+        # # Modification near the corners (Eq. 47 in [1])
+        f = isub(f, (..., 1, 1), ub[..., 1, 0] + ub[..., 0, 1])
+        f = isub(f, (..., 1, -2), ub[..., 1, -1] + ub[..., 0, -2])
+        f = isub(f, (..., -2, -2), ub[..., -2, -1] + ub[..., -1, -2])
+        f = isub(f, (..., -2, 1), ub[..., -2, 0] + ub[..., -1, 1])
+        # f[..., 1, 1] -= ub[..., 1, 0] + ub[..., 0, 1]
+        # f[..., 1, -2] -= ub[..., 1, -1] + ub[..., 0, -2]
+        # f[..., -2, -2] -= ub[..., -2, -1] + ub[..., -1, -2]
+        # f[..., -2, 1] -= ub[..., -2, 0] + ub[..., -1, 1]
 
-    fsin = fft.dstn(f[..., 1:-1, 1:-1], axes=(-2, -1), type=1, workers=workers)
+    fsin = dst2(f[..., 1:-1, 1:-1], type=1, workers=workers)
 
     # dtype not supported in numba
-    x = xp.astype(xp.linspace(0., xp.pi / 2, sx), dtype, copy=False)[1:-1]
-    y = xp.astype(xp.linspace(0., xp.pi / 2, sy), dtype, copy=False)[1:-1][:, None]
+    x = xp.astype(xp.linspace(0.0, xp.pi / 2.0, sx), dtype, copy=False)[1:-1]
+    y = xp.astype(xp.linspace(0.0, xp.pi / 2.0, sy), dtype, copy=False)[1:-1][:, None]
     # Faster to do * before + : x.size + y.size vs x.size * y.size
-    denom = (-4.0 * xp.sin(x) ** 2) + (-4.0 * xp.sin(y) ** 2)
+    sinx = xp.sin(x)
+    siny = xp.sin(y)
+
+    denom = (-four * sinx * sinx) + (-four * siny * siny)
     z_bar = fsin / denom
     z = xp.zeros(result_shape, dtype=fsin.dtype)
     if ub is not None:
-        z[:] = ub
-    z[..., 1:-1, 1:-1] = fft.idstn(z_bar, axes=(-2, -1), type=1, workers=workers)
-    return z
+        z = setitem(z, (...,), ub)  # z[:] = ub
 
-
-# def create_dst_poisson(xp, fft):
-#     """
-
-#     Parameters
-#     ----------
-#     xp : _type_
-#         _description_
-#     fft : _type_
-#         _description_
-
-#     Returns
-#     -------
-#     _type_
-#         _description_
-#     """
-
-#     if xp.__name__ == "jax.numpy":
-
-#         # TODO(nin17): implement dstn and idstn in JAX
-
-#         def dst_poisson(*, gx, gy, ub=None, **kwargs):
-#             sy, sx = check_shapes(gx, gy)
-#             if ub is not None:
-#                 result_shape = xp.broadcast_shapes(gy.shape, gx.shape, ub.shape)
-#             else:
-#                 result_shape = xp.broadcast_shapes(gy.shape, gx.shape)
-#             if "type" not in kwargs:
-#                 kwargs["type"] = 1
-
-#             qy = 0.5 * (gy[..., xp.r_[1:sy, -1], :] - gy[..., xp.r_[0, : sy - 1], :])
-#             px = 0.5 * (gx[..., :, xp.r_[1:sx, -1]] - gx[..., :, xp.r_[0, : sx - 1]])
-#             f = qy + px
-
-#             if ub is not None:
-#                 # Modification near the boundaries (Eq. 46 in [1])
-#                 f = f.at[..., 1, 2:-2].add(-ub[..., 0, 2:-2])
-#                 f = f.at[..., -2, 2:-2].add(-ub[..., -1, 2:-2])
-#                 f = f.at[..., 2:-2, 1].add(-ub[..., 2:-2, 0])
-#                 f = f.at[..., 2:-2, -2].add(-ub[..., 2:-2, -1])
-
-#                 # Modification near the corners (Eq. 47 in [1])
-#                 f = f.at[..., 1, 1].add(-(ub[..., 1, 0] + ub[..., 0, 1]))
-#                 f = f.at[..., 1, -2].add(-(ub[..., 1, -1] + ub[..., 0, -2]))
-#                 f = f.at[..., -2, -2].add(-(ub[..., -2, -1] + ub[..., -1, -2]))
-#                 f = f.at[..., -2, 1].add(-(ub[..., -2, 0] + ub[..., -1, 1]))
-
-#             fsin = fft.dstn(f[..., 1:-1, 1:-1], axes=(-2, -1), **kwargs)
-
-#             x = xp.linspace(0, xp.pi / 2, sx, dtype=fsin.dtype)[1:-1]
-#             y = xp.linspace(0, xp.pi / 2, sy, dtype=fsin.dtype)[1:-1][:, None]
-#             # Faster to do * before + : x.size + y.size vs x.size * y.size
-#             denom = (-4.0 * xp.sin(x) ** 2) - (4.0 * xp.sin(y) ** 2)
-#             z_bar = fsin / denom
-
-#             z = xp.zeros(result_shape, dtype=fsin.dtype)
-#             if ub is not None:
-#                 z = z.at[:].set(ub)
-#             z = z.at[..., 1:-1, 1:-1].set(fft.idstn(z_bar, axes=(-2, -1), **kwargs))
-#             return z
-
-#     else:
-
-#         def dst_poisson(*, gx, gy, ub=None, **kwargs):
-#             sy, sx = check_shapes(gx, gy)
-#             if ub is not None:
-#                 result_shape = xp.broadcast_shapes(gy.shape, gx.shape, ub.shape)
-#             else:
-#                 result_shape = xp.broadcast_shapes(gy.shape, gx.shape)
-#             if "type" not in kwargs:
-#                 kwargs["type"] = 1
-
-#             qy = 0.5 * (gy[..., xp.r_[1:sy, -1], :] - gy[..., xp.r_[0, : sy - 1], :])
-#             px = 0.5 * (gx[..., :, xp.r_[1:sx, -1]] - gx[..., :, xp.r_[0, : sx - 1]])
-#             f = qy + px
-
-#             if ub is not None:
-#                 # Modification near the boundaries (Eq. 46 in [1])
-#                 f[..., 1, 2:-2] -= ub[..., 0, 2:-2]
-#                 f[..., -2, 2:-2] -= ub[..., -1, 2:-2]
-#                 f[..., 2:-2, 1] -= ub[..., 2:-2, 0]
-#                 f[..., 2:-2, -2] -= ub[..., 2:-2, -1]
-
-#                 # Modification near the corners (Eq. 47 in [1])
-#                 f[..., 1, 1] -= ub[..., 1, 0] + ub[..., 0, 1]
-#                 f[..., 1, -2] -= ub[..., 1, -1] + ub[..., 0, -2]
-#                 f[..., -2, -2] -= ub[..., -2, -1] + ub[..., -1, -2]
-#                 f[..., -2, 1] -= ub[..., -2, 0] + ub[..., -1, 1]
-
-#             fsin = fft.dstn(f[..., 1:-1, 1:-1], axes=(-2, -1), **kwargs)
-
-#             x = xp.linspace(0, xp.pi / 2, sx, dtype=fsin.dtype)[1:-1]
-#             y = xp.linspace(0, xp.pi / 2, sy, dtype=fsin.dtype)[1:-1][:, None]
-#             # Faster to do * before + : x.size + y.size vs x.size * y.size
-#             denom = (-4.0 * xp.sin(x) ** 2) + (-4.0 * xp.sin(y) ** 2)
-#             z_bar = fsin / denom
-#             z = xp.zeros(result_shape, dtype=fsin.dtype)
-#             if ub is not None:
-#                 z[:] = ub
-#             z[..., 1:-1, 1:-1] = fft.idstn(z_bar, axes=(-2, -1), **kwargs)
-#             return z
-
-#     return dst_poisson
-#     return dst_poisson
-#     return dst_poisson
+    s1_1 = slice(1, -1)
+    return setitem(z, (..., s1_1, s1_1), idst2(z_bar, type=1, workers=workers))
+    # Equivalent to:
+    # z[..., 1:-1, 1:-1] = idst2(z_bar, type=1, workers=workers)
+    # return z
