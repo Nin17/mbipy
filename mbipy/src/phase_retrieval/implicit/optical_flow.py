@@ -1,15 +1,15 @@
-"""_summary_
-"""
+"""_summary_"""
 
 __all__ = ("optical_flow",)
 
 import importlib
 
+from array_api_compat import is_jax_namespace, is_numpy_namespace, is_torch_namespace
 from numpy import floating, pi
 from numpy.typing import NDArray
 
-from ...config import __have_scipy__
-from ...utils import array_namespace
+from mbipy.src.config import __have_scipy__
+from mbipy.src.utils import array_namespace
 
 
 def get_dfts(xp):
@@ -18,17 +18,21 @@ def get_dfts(xp):
     def remove_workers(func):
         return lambda *args, workers, **kwargs: func(*args, **kwargs)
 
-    if "jax" in xp.__name__:
+    if is_jax_namespace(xp):
         return remove_workers(xp.fft.fft2), remove_workers(xp.fft.ifft2)
 
-    if "numpy" in xp.__name__:
+    if is_numpy_namespace(xp):
         if __have_scipy__:
             fft = importlib.import_module("scipy.fft")
             return fft.fft2, fft.ifft2
-        return np.fft.fft2, np.fft.ifft2
+        npfft = importlib.import_module("numpy.fft")
+        return npfft.fft2, npfft.ifft2
 
-    if "torch" in xp.__name__:
+    if is_torch_namespace(xp):
         return remove_workers(xp.fft.fftn), remove_workers(xp.fft.ifftn)
+
+    msg = "Unsupported array namespace. Only JAX, NumPy, and PyTorch are supported."
+    return ValueError(msg)
 
 
 def _kspace(ny, nx, xp):
@@ -81,8 +85,8 @@ def _process_sample(sample, reference, absorption_sigma, filt_y, filt_x, workers
     numerator = fft2(sample / absorption_mask - reference, workers=workers)
 
     # output calculation
-    dx = (-ifft2(filt_x * numerator, workers=workers).imag / reference).mean(axis=-3)
-    dy = (-ifft2(filt_y * numerator, workers=workers).imag / reference).mean(axis=-3)
+    dx = -ifft2(filt_x * numerator, workers=workers).imag / reference  # .mean(axis=-3)
+    dy = -ifft2(filt_y * numerator, workers=workers).imag / reference  # .mean(axis=-3)
 
     return dy, dx
 
@@ -100,7 +104,11 @@ class OpticalFlow:
     def __call__(self, sample, absorption_sigma=0.0, workers=-1):
 
         return _process_sample(
-            sample, self.reference, absorption_sigma, *self.filters, workers
+            sample,
+            self.reference,
+            absorption_sigma,
+            *self.filters,
+            workers,
         )
 
 

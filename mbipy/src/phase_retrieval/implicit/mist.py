@@ -1,9 +1,11 @@
-"""_summary_
-"""
+"""_summary_"""
 
 __all__ = ("Mist20", "Mist23", "mist20", "mist23")
 
-from ...utils import array_namespace
+from array_api_compat import is_torch_namespace
+
+from mbipy.src.utils import array_namespace
+
 from .utils import laplace
 
 
@@ -14,8 +16,8 @@ def _mist20_matrices(reference):
         raise ValueError(msg)
     laplacian = laplace(reference)
     matrices = xp.stack((reference, -laplacian), axis=-1)
-    order = tuple(range(matrices.ndim - 4)) + (-3, -2, -4, -1)
-    if "torch" in xp.__name__:
+    order = (*tuple(range(matrices.ndim - 4)), -3, -2, -4, -1)
+    if is_torch_namespace(xp):
         return matrices.permute(*order)
     return matrices.transpose(order)
 
@@ -26,13 +28,19 @@ def _mist20_vectors(sample, reference):
         msg = f"sample must have at least 3 dimensions. {sample.ndim}."
         raise ValueError(msg)
     r_s = reference - sample
-    if "torch" in xp.__name__:
-        return r_s.permute(*range(0, r_s.ndim - 3), -2, -1, -3)
+    if is_torch_namespace(xp):
+        return r_s.permute(*range(r_s.ndim - 3), -2, -1, -3)
     return r_s.transpose(tuple(range(r_s.ndim - 3)) + (-2, -1, -3))
 
 
 def mist20(
-    sample, reference, alpha=0.0, search_window=None, start=None, stop=None, step=None
+    sample,
+    reference,
+    alpha=0.0,
+    search_window=None,
+    start=None,
+    stop=None,
+    step=None,
 ):
     xp = array_namespace(sample, reference)
     matrices = _mist20_matrices(reference)

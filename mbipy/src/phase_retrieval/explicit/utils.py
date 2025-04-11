@@ -2,10 +2,10 @@
 """
 
 __all__ = (
-    "create_similarity_st",
-    "create_similarity_svt",
     "create_find_displacement",
     "create_find_displacement2",
+    "create_similarity_st",
+    "create_similarity_svt",
     "create_vectors_st",
     "create_vectors_st_svt",
 )
@@ -15,25 +15,29 @@ import itertools
 import warnings
 
 import numpy as np
+from array_api_compat import is_cupy_namespace, is_numpy_namespace
+
 
 def get_correlate1d(xp):
-    if "jax" in xp.__name__:
-        raise NotImplementedError("jax not supported")
-    if "numpy" in xp.__name__:
+    if is_numpy_namespace(xp):
         return importlib.import_module("scipy.ndimage").correlate1d
-    if "cupy" in xp.__name__:
+    if is_cupy_namespace(xp):
         return importlib.import_module("cupyx.scipy.ndimage").correlate1d
     raise NotImplementedError(f"{xp.__name__} not supported")
 
 def get_swv(xp):
-    if hasattr(xp, "lib.stride_tricks"):
-        return xp.lib.stride_tricks.sliding_window_view
+    if is_numpy_namespace(xp):
+        return importlib.import_module("numpy.lib.stride_tricks").sliding_window_view
+    if is_cupy_namespace(xp):
+        return importlib.import_module("cupy.lib.stride_tricks").sliding_window_view
+    # if hasattr(xp, "lib.stride_tricks"):
+    #     return xp.lib.stride_tricks.sliding_window_view
     raise NotImplementedError(f"{xp.__name__} not supported")
 
 def assert_odd(*args: tuple[int, ...]) -> None:
     if not all(i % 2 == 1 for i in args):
         raise ValueError("All search and template dimensions must be odd.")
-        
+
 
 
 def cutoff_warning(*arrays, cutoff=None, axis=-1):
@@ -42,7 +46,7 @@ def cutoff_warning(*arrays, cutoff=None, axis=-1):
     for i in arrays:
         if i.shape[axis] < cutoff:
             warnings.warn(
-                f"Cutoff is too high to take effect, there are {i.shape[axis]} points."
+                f"Cutoff is too high to take effect, there are {i.shape[axis]} points.",
             )
 
 
@@ -294,7 +298,7 @@ def create_find_displacement2(xp):
         maxy = sy - 1
         maxx = sx - 1
         dy_int1, dx_int1 = np.unravel_index(
-            array.reshape(array.shape[:-2] + (-1,)).argmax(axis=-1), array.shape[-2:]
+            array.reshape(array.shape[:-2] + (-1,)).argmax(axis=-1), array.shape[-2:],
         )
         # dy_int1, dx_int1 = xp.divmod(
         #     array.reshape(array.shape[:-2] + (-1,)).argmax(axis=-1), sx
@@ -351,7 +355,7 @@ def create_find_displacement2(xp):
         disp_y = -(dxx * dy - dxy * dx) * det
 
         return xp.clip(
-            disp_y.reshape(_shape) + dy_int1.reshape(_shape) - sy2, -sy2, sy2
+            disp_y.reshape(_shape) + dy_int1.reshape(_shape) - sy2, -sy2, sy2,
         ), xp.clip(disp_x.reshape(_shape) + dx_int1.reshape(_shape) - sx2, -sx2, sx2)
 
     return find_disp_np
@@ -391,6 +395,7 @@ def create_find_displacement2(xp):
 #     return disp_y + dy_int1 - sy // 2, disp_x + dx_int1 - sx // 2
 
 from ...utils import array_namespace
+
 
 def find_displacement(array_padded):
     # TODO(nin17): add docstring
@@ -456,8 +461,8 @@ def find_displacement(array_padded):
 
     # TODO nin17: remove this temporary fix
     # ??? nin17: why -2
-    disp_y = xp.clip(disp_y, 0, array_padded.shape[-2] - 1)
-    disp_x = xp.clip(disp_x, 0, array_padded.shape[-1] - 1)
+    disp_y = xp.clip(disp_y, 0., array_padded.shape[-2] - 1.)
+    disp_x = xp.clip(disp_x, 0., array_padded.shape[-1] - 1.)
 
     # ??? nin17: why -2
     disp_y = disp_y - array_padded.shape[-2] // 2 - 1

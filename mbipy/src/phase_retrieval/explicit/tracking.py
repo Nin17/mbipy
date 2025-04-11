@@ -5,7 +5,7 @@ Compatible with numpy, cupy & jax.
 
 from __future__ import annotations
 
-__all__ = "create_xst", "create_xsvt", "create_xst_xsvt", "create_umpa"
+__all__ = "create_umpa", "create_xst", "create_xst_xsvt", "create_xsvt"
 
 import itertools
 import types
@@ -23,10 +23,7 @@ def _transform_kwargs(transform, kwargs, axis=-1):
 
     elif transform == "sine":
         _kwargs = {"type": 1, "norm": "ortho"}
-    elif transform == "fourier":
-        _kwargs = {"norm": "ortho"}
-
-    elif transform == "hartley":
+    elif transform == "fourier" or transform == "hartley":
         _kwargs = {"norm": "ortho"}
 
     elif transform == "wavelet":
@@ -38,7 +35,7 @@ def _transform_kwargs(transform, kwargs, axis=-1):
         warnings.warn(
             f"""transform_kwargs will be overwritten as the given values will give incorrect results.
                       The defaults for the {transform} transform are {_kwargs}.
-                      """
+                      """,
         )
 
     return kwargs | _kwargs
@@ -50,7 +47,7 @@ def level_cutoff_warning(*tuples, level_cutoff=None):
     for i in tuples:
         if len(i) < level_cutoff:
             warnings.warn(
-                f"Level cutoff is too high to take effect, there are {len(i)} levels."
+                f"Level cutoff is too high to take effect, there are {len(i)} levels.",
             )
 
 
@@ -60,7 +57,7 @@ def cutoff_warning(*arrays, cutoff=None, axis=-1):
     for i in arrays:
         if i.shape[axis] < cutoff:
             warnings.warn(
-                f"Cutoff is too high to take effect, there are {i.shape[axis]} points."
+                f"Cutoff is too high to take effect, there are {i.shape[axis]} points.",
             )
 
 
@@ -117,7 +114,7 @@ def create_xst(
 
         # Pad before finding the sub-pixel displacement
         similarity_padded = xp.pad(
-            similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE
+            similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE,
         )
         displacement = find_displacement(similarity_padded)
 
@@ -132,11 +129,11 @@ def create_xst(
         disp_x = xp.rint(displacement[1]).astype(xp.int64)
 
         indices_y = disp_y + xp.arange(
-            diff_y, diff_y + disp_y.shape[-2], dtype=xp.int64
+            diff_y, diff_y + disp_y.shape[-2], dtype=xp.int64,
         ).reshape((1,) * (disp_y.ndim - 2) + (-1, 1))
 
         indices_x = disp_x + xp.arange(
-            diff_x, diff_x + disp_x.shape[-1], dtype=xp.int64
+            diff_x, diff_x + disp_x.shape[-1], dtype=xp.int64,
         ).reshape((1,) * (disp_x.ndim - 1) + (-1,))
 
         # offset_y = xp.arange(diff_y, diff_y + indices_y.shape[-2], dtype=xp.int64)
@@ -218,7 +215,7 @@ def create_xst_xsvt(
 
         similarity = similarity_st(_sample_v, _reference_v, ss).real
         similarity_padded = xp.pad(
-            similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE
+            similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE,
         )
         displacement = find_displacement(similarity_padded)
 
@@ -235,19 +232,19 @@ def create_xst_xsvt(
 
         disp_y = xp.rint(displacement[0]).astype(xp.int64)
         indices_y = disp_y + xp.arange(
-            diff_y, sample.shape[-2] - diff_y, dtype=xp.int64
+            diff_y, sample.shape[-2] - diff_y, dtype=xp.int64,
         ).reshape((1,) * (displacement[0].ndim - 2) + (-1, 1))
 
         disp_x = xp.rint(displacement[1]).astype(xp.int64)
         indices_x = disp_x + xp.arange(
-            diff_x, sample.shape[-1] - diff_x, dtype=xp.int64
+            diff_x, sample.shape[-1] - diff_x, dtype=xp.int64,
         ).reshape((1,) * (displacement[1].ndim - 1) + (-1,))
 
         indices_y = xp.clip(
-            indices_y, 0, disp_y.shape[-2] - 1
+            indices_y, 0, disp_y.shape[-2] - 1,
         )  # !!! shouldn't need this
         indices_x = xp.clip(
-            indices_x, 0, disp_x.shape[-1] - 1
+            indices_x, 0, disp_x.shape[-1] - 1,
         )  # !!! shouldn't need this
 
         preceding = ()  # TODO nin17: preceding arrays for broadcasting
@@ -307,7 +304,7 @@ def create_xsvt(
 
         similarity = similarity_svt(_sample, _reference[..., m:-m, n:-n], m, n).real
         similarity_padded = xp.pad(
-            similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE
+            similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE,
         )
         displacement = find_displacement(similarity_padded)
         # displacement = find_displacement(similarity)
@@ -320,20 +317,20 @@ def create_xsvt(
         # TODO nin17: do this inplace - numpy & jax versions separately
         disp_y = xp.rint(displacement[0]).astype(xp.int64)
         indices_y = disp_y + xp.arange(m, sample.shape[-2] - m, dtype=xp.int64).reshape(
-            (1,) * (displacement[0].ndim - 2) + (-1, 1)
+            (1,) * (displacement[0].ndim - 2) + (-1, 1),
         )
         disp_x = xp.rint(displacement[1]).astype(xp.int64)
         indices_x = disp_x + xp.arange(n, sample.shape[-1] - n, dtype=xp.int64).reshape(
-            (1,) * (displacement[1].ndim - 1) + (-1,)
+            (1,) * (displacement[1].ndim - 1) + (-1,),
         )
 
         # This is likely necessary due to problems with the sub-pixel fitting returning
         # values outside of the unpadded region - which it shouldn't
         indices_y = xp.clip(
-            indices_y, 0, disp_y.shape[-2] - 1
+            indices_y, 0, disp_y.shape[-2] - 1,
         )  # !!! shouldn't need this
         indices_x = xp.clip(
-            indices_x, 0, disp_x.shape[-1] - 1
+            indices_x, 0, disp_x.shape[-1] - 1,
         )  # !!! shouldn't need this
 
         # TODO nin17: need preceeding arrays for broadcasting
@@ -358,12 +355,12 @@ def create_umpa(xp, correlate1d, swv, find_displacement):
         ss,
         ts,
         df: bool = False,
-        weights: None | bool | tuple["array", "array"] = True,
+        weights: None | bool | tuple[array, array] = True,
     ):
         if not all(i % 2 == 1 for i in itertools.chain(ss, ts)):
             raise ValueError("All search and template dimensions must be odd.")
 
-        if weights is None or isinstance(weights, bool) and not weights:
+        if weights is None or (isinstance(weights, bool) and not weights):
             hamming_2 = xp.ones(ts[0], dtype=float) / ts[0]
             hamming_1 = xp.ones(ts[1], dtype=float) / ts[1]
 
@@ -390,8 +387,10 @@ def create_umpa(xp, correlate1d, swv, find_displacement):
         start0 = n0 + m0
         start1 = n1 + m1
 
-        s2 = xp.square(sample)
-        r2 = xp.square(reference)
+        # s2 = xp.square(sample)
+        s2 = sample * sample.conj() #!!! For complex transforms
+        # r2 = xp.square(reference)
+        r2 = reference * reference.conj() #!!! For complex transforms
 
         # convolve1d just calls correlate1d and as hamming is symmetric it doesn't matter
         l1 = correlate1d(s2, hamming_2, mode="constant", axis=-2)
@@ -409,6 +408,7 @@ def create_umpa(xp, correlate1d, swv, find_displacement):
         r_swv = r_swv.transpose(tuple(range(r_swv.ndim - 5)) + (-4, -3, -5, -2, -1))
         r_swv = r_swv.reshape(r_swv.shape[:-3] + (-1,))
 
+        sample = sample.conj() #!!! For complex transforms
         s_swv = swv(sample, ts, axis=(-2, -1))
         s_swv = s_swv.transpose(tuple(range(s_swv.ndim - 5)) + (-4, -3, -5, -2, -1))
         s_swv = s_swv.reshape(s_swv.shape[:-3] + (-1,))
@@ -416,6 +416,7 @@ def create_umpa(xp, correlate1d, swv, find_displacement):
 
         l5 = xp.einsum("...k,...klm ->...lm", r_swv[..., n0:-n0, n1:-n1, :], s_swv_swv)
         l5_2 = xp.square(l5)
+        # l5_2 = l5 * l5.conj() #!!! For complex transforms
 
         if df:
             if sum(ts) < 4:
@@ -427,7 +428,7 @@ def create_umpa(xp, correlate1d, swv, find_displacement):
             mean_swv = swv(mean, ts, axis=(-2, -1))
             mean_swv = mean_swv * hamming2d
             mean_swv = mean_swv.transpose(
-                tuple(range(mean_swv.ndim - 5)) + (-4, -3, -5, -2, -1)
+                tuple(range(mean_swv.ndim - 5)) + (-4, -3, -5, -2, -1),
             )
             mean_swv = mean_swv.reshape(mean_swv.shape[:-3] + (-1,))
 
@@ -435,7 +436,7 @@ def create_umpa(xp, correlate1d, swv, find_displacement):
             l2 = correlate1d(l2, hamming_1, mode="constant", axis=-1).sum(axis=-3)
 
             l4 = xp.einsum(
-                "...k,...klm ->...lm", mean_swv[..., n0:-n0, n1:-n1, :], s_swv_swv
+                "...k,...klm ->...lm", mean_swv[..., n0:-n0, n1:-n1, :], s_swv_swv,
             )
 
             l6 = correlate1d(reference * mean, hamming_2, mode="constant", axis=-2)
@@ -467,10 +468,10 @@ def create_umpa(xp, correlate1d, swv, find_displacement):
             _loss = loss.reshape(loss.shape[:-2] + (-1,))
             loss_max = _loss.argmax(axis=-1)
             _alpha = xp.take_along_axis(
-                alpha.reshape(alpha.shape[:-2] + (-1,)), loss_max[..., None], axis=-1
+                alpha.reshape(alpha.shape[:-2] + (-1,)), loss_max[..., None], axis=-1,
             ).squeeze(-1)
             _beta = xp.take_along_axis(
-                beta.reshape(beta.shape[:-2] + (-1,)), loss_max[..., None], axis=-1
+                beta.reshape(beta.shape[:-2] + (-1,)), loss_max[..., None], axis=-1,
             ).squeeze(-1)
 
             transmission = _alpha + _beta
@@ -480,20 +481,21 @@ def create_umpa(xp, correlate1d, swv, find_displacement):
             loss = (
                 l5_2 / l3[..., None, None]
                 - l1_swv[..., m0 : -m0 or None, m1 : -m1 or None, :, :]
-            )
+            ).real #!!! For complex transforms
+            print(loss.dtype)
             _loss = loss.reshape(loss.shape[:-2] + (-1,))
             loss_max = _loss.argmax(axis=-1)
 
             transmission = (
                 xp.take_along_axis(
-                    l5.reshape(l5.shape[:-2] + (-1,)), loss_max[..., None], axis=-1
+                    l5.reshape(l5.shape[:-2] + (-1,)), loss_max[..., None], axis=-1,
                 ).squeeze(-1)
                 / l3
             )
             dark_field = None
 
         similarity_padded = xp.pad(
-            loss, ((0, 0),) * (loss.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE
+            loss, ((0, 0),) * (loss.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE,
         )
         displacement = find_displacement(similarity_padded)
         return displacement + (transmission, dark_field)

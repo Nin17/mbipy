@@ -43,7 +43,6 @@ def create_cst(
     typing.Callable
         _description_
     """
-
     # TODO nin17: add docstring
 
     def cst(
@@ -86,7 +85,7 @@ def create_cst(
         cutoff_warning(*vectors, cutoff=cutoff, axis=-1)
         similarity = similarity_st(*vectors, ss, pcc)
         similarity_padded = xp.pad(
-            similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE
+            similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE,
         )
         return find_displacement(similarity_padded)
 
@@ -103,7 +102,7 @@ def create_csvt(xp, cosine_similarity_svt, find_displacement, dct):
 
         img1_dct = dct(img1, norm=DCT_NORM, axis=-3, **dct_kwargs)[..., :cutoff, :, :]
         img2_dct = dct(img2[..., m:-m, n:-n], norm=DCT_NORM, axis=-3, **dct_kwargs)[
-            ..., :cutoff, :, :
+            ..., :cutoff, :, :,
         ]
 
         cs = cosine_similarity_svt(img1_dct, img2_dct, m, n, pcc)
@@ -129,7 +128,7 @@ def create_cst_csvt(xp, vectors_st_svt, similarity_st, find_displacement, dct):
 
         similarity = similarity_st(*vectors, ss, pcc)
         similarity_padded = xp.pad(
-            similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE
+            similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE,
         )
         return find_displacement(similarity_padded)
 

@@ -21,7 +21,7 @@ def _level_cutoff_warning(*tuples, level_cutoff=None):
     for i in tuples:
         if len(i) < level_cutoff:
             warnings.warn(
-                f"Level cutoff is too high to take effect, there are {len(i)} levels."
+                f"Level cutoff is too high to take effect, there are {len(i)} levels.",
             )
 
 
@@ -31,7 +31,7 @@ def _cutoff_warning(*arrays, cutoff=None, axis=-1):
     for i in arrays:
         if i.shape[axis] < cutoff:
             warnings.warn(
-                f"Cutoff is too high to take effect, there are {i.shape[axis]} points."
+                f"Cutoff is too high to take effect, there are {i.shape[axis]} points.",
             )
 
 
@@ -41,10 +41,7 @@ def _transform_kwargs(transform, kwargs, axis=-1):
 
     elif transform == "sine":
         _kwargs = {"type": 1, "norm": "ortho"}
-    elif transform == "fourier":
-        _kwargs = {"norm": "ortho"}
-
-    elif transform == "hartley":
+    elif transform == "fourier" or transform == "hartley":
         _kwargs = {"norm": "ortho"}
 
     elif transform == "wavelet":
@@ -56,7 +53,7 @@ def _transform_kwargs(transform, kwargs, axis=-1):
         warnings.warn(
             f"""transform_kwargs will be overwritten as the given values will give incorrect results.
                       The defaults for the {transform} transform are {_kwargs}.
-                      """
+                      """,
         )
 
     return kwargs | _kwargs
@@ -163,15 +160,6 @@ def _vectors_st_svt(img1, img2, ss, ts):
     return img1_swv, img2_swv
 
 
-class Xst:
-    # TODO(nin17): Implement this
-    def __init__(self, reference):
-        raise NotImplementedError
-
-    def __call__(self, sample, search_window, template_window):
-        raise NotImplementedError
-
-
 class XstXsvt:
     # TODO(nin17): Implement this
     def __init__(self, reference):
@@ -181,7 +169,16 @@ class XstXsvt:
         raise NotImplementedError
 
 
-class Xsvt:
+class Xst(XstXsvt):
+    # TODO(nin17): Implement this
+    def __init__(self, reference):
+        raise NotImplementedError
+
+    def __call__(self, sample, search_window, template_window):
+        raise NotImplementedError
+
+
+class Xsvt(XstXsvt):
     # TODO(nin17): Implement this
     def __init__(self, reference):
         raise NotImplementedError
@@ -204,100 +201,111 @@ def xst(
     # TODO(nin17): annotations
     # TODO nin17: pcc option again
 
-    xp = array_namespace(sample, reference)
-    assert_odd(*search_window, *template_window)
-    # TODO transmission and darkfield calculation
-    sample_v, reference_v = _vectors_st(
-        sample, reference, search_window, template_window, xp=xp
+    return xst_xsvt(
+        sample=sample[..., None, :, :],
+        reference=reference[..., None, :, :],
+        search_window=search_window,
+        template_window=template_window,
+        transform=transform,
+        transform_kwargs=transform_kwargs,
+        cutoff=cutoff,
+        level_cutoff=level_cutoff,
     )
 
-    sample_sum = sample_v.sum(axis=-1)
-    reference_sum = reference_v.sum(axis=-1)
-    sample_std = sample_v.std(axis=-1)
-    reference_std = reference_v.std(axis=-1)
-
-    if transform is not None:
-        if transform_kwargs is None:
-            transform_kwargs = {}
-        _transform = transforms[transform]
-        transform_kwargs = _transform_kwargs(transform, transform_kwargs, -1)
-
-        sample_v = _transform(sample_v, **transform_kwargs)
-        reference_v = _transform(reference_v, **transform_kwargs)
-
-        _level_cutoff_warning(sample_v, reference_v, level_cutoff=level_cutoff)
-        if isinstance(sample_v, list) and isinstance(reference_v, list):
-            sample_v = xp.concatenate(sample_v[:level_cutoff], -1)
-            reference_v = xp.concatenate(reference_v[:level_cutoff], -1)
-
-    _cutoff_warning(sample_v, reference_v, cutoff=cutoff, axis=-1)
-    sample_v = sample_v[..., :cutoff]
-
-    # conj() only necessary for the fourier transform - but ns on real arrays
-    reference_v = reference_v[..., :cutoff].conj()
-
-    # .real only necessary for the fourier transform - but ns on real arrays
-    similarity = _similarity_st(sample_v, reference_v, search_window).real
-
-    # Pad before finding the sub-pixel displacement
-    similarity_padded = xp.pad(
-        similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE
-    )
-    displacement = find_displacement(similarity_padded)
-
-    # TODO nin17: implement attenuation & darkfield
-    # ??? Can possibly be int32
-    indices_y, indices_x = [xp.rint(i).astype(xp.int64) for i in displacement]
-    diff_y, diff_x = (
-        search_window[0] + template_window[0] - 2,
-        search_window[1] + template_window[1] - 2,
-    )
-    assert not (diff_y % 2 or diff_x % 2)
-    diff_y, diff_x = diff_y // 2, diff_x // 2
-
-    disp_y = xp.rint(displacement[0]).astype(xp.int64)
-    disp_x = xp.rint(displacement[1]).astype(xp.int64)
-
-    indices_y = disp_y + xp.arange(
-        diff_y, diff_y + disp_y.shape[-2], dtype=xp.int64
-    ).reshape((1,) * (disp_y.ndim - 2) + (-1, 1))
-
-    indices_x = disp_x + xp.arange(
-        diff_x, diff_x + disp_x.shape[-1], dtype=xp.int64
-    ).reshape((1,) * (disp_x.ndim - 1) + (-1,))
-
-    # offset_y = xp.arange(diff_y, diff_y + indices_y.shape[-2], dtype=xp.int64)
-    # offset_x = xp.arange(diff_x, diff_x + indices_x.shape[-1], dtype=xp.int64)
-
-    # indices_y += offset_y.reshape((1,) * (indices_y.ndim - 2) + (-1, 1))
-    # indices_x += offset_x.reshape((1,) * (indices_x.ndim - 1) + (-1,))
-
-    indices_y = xp.clip(0, disp_y.shape[-2] - 1, indices_y)
-    indices_x = xp.clip(0, disp_x.shape[-1] - 1, indices_x)
-    ndim = sample.ndim - 1
-    # preceding = tuple(
-    #     xp.arange(j).reshape((1,) * i + (-1,) + (1,) * (ndim - i))
-    #     for i, j in enumerate(indices_y.shape[:-2])
-    # )
-    preceding = ()
-    # FIXME nin17: IndexError
-    transmission = (
-        sample_sum[preceding + (indices_y, indices_x)]
-        / reference_sum[preceding + (indices_y, indices_x)]
-    )
-    dark_field = (
-        sample_std[preceding + (indices_y, indices_x)]
-        / reference_std[preceding + (indices_y, indices_x)]
-    ) / transmission
-
-    # transmission2 = (
-    #     sample[preceding + (indices_y, indices_x)] / reference[..., 10:-10, 10:-10]
+    # xp = array_namespace(sample, reference)
+    # assert_odd(*search_window, *template_window)
+    # # TODO transmission and darkfield calculation
+    # sample_v, reference_v = _vectors_st(
+    #     sample, reference, search_window, template_window
     # )
 
-    return displacement + (
-        transmission,
-        dark_field,
-    )  # , transmission2)    return displacement + (transmission, dark_field)  # , transmission2)
+    # sample_sum = sample_v.sum(axis=-1)
+    # reference_sum = reference_v.sum(axis=-1)
+    # sample_std = sample_v.std(axis=-1)
+    # reference_std = reference_v.std(axis=-1)
+
+    # if transform is not None:
+    #     if transform_kwargs is None:
+    #         transform_kwargs = {}
+    #     _transform = transforms[transform]
+    #     transform_kwargs = _transform_kwargs(transform, transform_kwargs, -1)
+
+    #     sample_v = _transform(sample_v, **transform_kwargs)
+    #     reference_v = _transform(reference_v, **transform_kwargs)
+
+    #     _level_cutoff_warning(sample_v, reference_v, level_cutoff=level_cutoff)
+    #     if isinstance(sample_v, list) and isinstance(reference_v, list):
+    #         sample_v = xp.concatenate(sample_v[:level_cutoff], -1)
+    #         reference_v = xp.concatenate(reference_v[:level_cutoff], -1)
+
+    # _cutoff_warning(sample_v, reference_v, cutoff=cutoff, axis=-1)
+    # sample_v = sample_v[..., :cutoff]
+
+    # # conj() only necessary for the fourier transform - but ns on real arrays
+    # reference_v = reference_v[..., :cutoff].conj()
+
+    # # .real only necessary for the fourier transform - but ns on real arrays
+    # similarity = _similarity_st(sample_v, reference_v, search_window).real
+
+    # # Pad before finding the sub-pixel displacement
+    # similarity_padded = xp.pad(
+    #     similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE
+    # )
+    # displacement = find_displacement(similarity_padded)
+
+    # # TODO nin17: implement attenuation & darkfield
+    # # ??? Can possibly be int32
+    # indices_y, indices_x = [xp.rint(i).astype(xp.int64) for i in displacement]
+    # diff_y, diff_x = (
+    #     search_window[0] + template_window[0] - 2,
+    #     search_window[1] + template_window[1] - 2,
+    # )
+    # assert not (diff_y % 2 or diff_x % 2)
+    # diff_y, diff_x = diff_y // 2, diff_x // 2
+
+    # disp_y = xp.rint(displacement[0]).astype(xp.int64)
+    # disp_x = xp.rint(displacement[1]).astype(xp.int64)
+
+    # indices_y = disp_y + xp.arange(
+    #     diff_y, diff_y + disp_y.shape[-2], dtype=xp.int64
+    # ).reshape((1,) * (disp_y.ndim - 2) + (-1, 1))
+
+    # indices_x = disp_x + xp.arange(
+    #     diff_x, diff_x + disp_x.shape[-1], dtype=xp.int64
+    # ).reshape((1,) * (disp_x.ndim - 1) + (-1,))
+
+    # # offset_y = xp.arange(diff_y, diff_y + indices_y.shape[-2], dtype=xp.int64)
+    # # offset_x = xp.arange(diff_x, diff_x + indices_x.shape[-1], dtype=xp.int64)
+
+    # # indices_y += offset_y.reshape((1,) * (indices_y.ndim - 2) + (-1, 1))
+    # # indices_x += offset_x.reshape((1,) * (indices_x.ndim - 1) + (-1,))
+
+    # indices_y = xp.clip(indices_y, 0, disp_y.shape[-2] - 1)
+    # indices_x = xp.clip(indices_x, 0, disp_x.shape[-1] - 1)
+    # ndim = sample.ndim - 1
+    # # preceding = tuple(
+    # #     xp.arange(j).reshape((1,) * i + (-1,) + (1,) * (ndim - i))
+    # #     for i, j in enumerate(indices_y.shape[:-2])
+    # # )
+    # preceding = ()
+    # # FIXME nin17: IndexError
+    # transmission = (
+    #     sample_sum[*preceding, indices_y, indices_x]
+    #     / reference_sum[*preceding, indices_y, indices_x]
+    # )
+    # dark_field = (
+    #     sample_std[*preceding, indices_y, indices_x]
+    #     / reference_std[*preceding, indices_y, indices_x]
+    # ) / transmission
+
+    # # transmission2 = (
+    # #     sample[preceding + (indices_y, indices_x)] / reference[..., 10:-10, 10:-10]
+    # # )
+
+    # return displacement + (
+    #     transmission,
+    #     dark_field,
+    # )  # , transmission2)    return displacement + (transmission, dark_field)  # , transmission2)
 
 
 def xst_xsvt(
@@ -317,7 +325,7 @@ def xst_xsvt(
     assert_odd(*search_window, *template_window)
 
     sample_v, reference_v = _vectors_st_svt(
-        sample, reference, search_window, template_window
+        sample, reference, search_window, template_window,
     )
     _sample_v = sample_v
     _reference_v = reference_v
@@ -342,7 +350,7 @@ def xst_xsvt(
 
     similarity = _similarity_st(_sample_v, _reference_v, search_window).real
     similarity_padded = xp.pad(
-        similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE
+        similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE,
     )
     displacement = find_displacement(similarity_padded)
 
@@ -359,12 +367,12 @@ def xst_xsvt(
 
     disp_y = xp.rint(displacement[0]).astype(xp.int64)
     indices_y = disp_y + xp.arange(
-        diff_y, sample.shape[-2] - diff_y, dtype=xp.int64
+        diff_y, sample.shape[-2] - diff_y, dtype=xp.int64,
     ).reshape((1,) * (displacement[0].ndim - 2) + (-1, 1))
 
     disp_x = xp.rint(displacement[1]).astype(xp.int64)
     indices_x = disp_x + xp.arange(
-        diff_x, sample.shape[-1] - diff_x, dtype=xp.int64
+        diff_x, sample.shape[-1] - diff_x, dtype=xp.int64,
     ).reshape((1,) * (displacement[1].ndim - 1) + (-1,))
 
     indices_y = xp.clip(indices_y, 0, disp_y.shape[-2] - 1)  # !!! shouldn't need this
@@ -380,7 +388,7 @@ def xst_xsvt(
         / reference_v_std[preceding + (indices_y, indices_x)]
     ) / transmission
 
-    return displacement + (transmission, dark_field)
+    return transmission, *displacement, dark_field
 
 
 def xsvt(
@@ -392,67 +400,86 @@ def xsvt(
     cutoff: int | None = None,
     level_cutoff: int | None = None,
 ):
-    # TODO(nin17): add docstring
-    # TODO nin17: pcc option again
-    # TODO nin17: annotations
-    xp = array_namespace(sample, reference)
-    assert_odd(*search_window)
-    m, n = search_window
-    _sample = sample
-    _reference = reference
-    if transform is not None:
-        if transform_kwargs is None:
-            transform_kwargs = {}
-        _transform = transforms[transform]
-        transform_kwargs = _transform_kwargs(transform, transform_kwargs, -3)
-
-        _sample = _transform(sample, **transform_kwargs)
-        _reference = _transform(reference, **transform_kwargs)
-
-        _level_cutoff_warning(_sample, _reference, level_cutoff=level_cutoff)
-        if isinstance(_sample, list) and isinstance(_reference, list):
-            _sample = xp.concatenate(_sample[:level_cutoff], -3)
-            _reference = xp.concatenate(_reference[:level_cutoff], -3)
-
-    _cutoff_warning(_sample, _reference, cutoff=cutoff, axis=-3)
-    _sample = _sample[..., :cutoff, :, :]
-    _reference = _reference[..., :cutoff, :, :].conj()
-
-    similarity = _similarity_svt(_sample, _reference[..., m:-m, n:-n], m, n).real
-    similarity_padded = xp.pad(
-        similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE
+    kwargs = {
+        "sample": sample,
+        "reference": reference,
+        "search_window": search_window,
+        "transform": transform,
+        "transform_kwargs": transform_kwargs,
+        "cutoff": cutoff,
+        "level_cutoff": level_cutoff,
+    }
+    return xst_xsvt(
+        sample=sample,
+        reference=reference,
+        search_window=search_window,
+        template_window=(1, 1),
+        transform=transform,
+        transform_kwargs=transform_kwargs,
+        cutoff=cutoff,
+        level_cutoff=level_cutoff,
     )
-    displacement = find_displacement(similarity_padded)
-    # displacement = find_displacement(similarity)
+    # # TODO(nin17): add docstring
+    # # TODO nin17: pcc option again
+    # # TODO nin17: annotations
+    # xp = array_namespace(sample, reference)
+    # assert_odd(*search_window)
+    # m, n = search_window
+    # _sample = sample
+    # _reference = reference
+    # if transform is not None:
+    #     if transform_kwargs is None:
+    #         transform_kwargs = {}
+    #     _transform = transforms[transform]
+    #     transform_kwargs = _transform_kwargs(transform, transform_kwargs, -3)
 
-    sample_sum = sample.sum(axis=-3)
-    reference_sum = reference.sum(axis=-3)
-    sample_std = sample.std(axis=-3)
-    reference_std = reference.std(axis=-3)
+    #     _sample = _transform(sample, **transform_kwargs)
+    #     _reference = _transform(reference, **transform_kwargs)
 
-    # TODO nin17: do this inplace - numpy & jax versions separately
-    disp_y = xp.rint(displacement[0]).astype(xp.int64)
-    indices_y = disp_y + xp.arange(m, sample.shape[-2] - m, dtype=xp.int64).reshape(
-        (1,) * (displacement[0].ndim - 2) + (-1, 1)
-    )
-    disp_x = xp.rint(displacement[1]).astype(xp.int64)
-    indices_x = disp_x + xp.arange(n, sample.shape[-1] - n, dtype=xp.int64).reshape(
-        (1,) * (displacement[1].ndim - 1) + (-1,)
-    )
+    #     _level_cutoff_warning(_sample, _reference, level_cutoff=level_cutoff)
+    #     if isinstance(_sample, list) and isinstance(_reference, list):
+    #         _sample = xp.concatenate(_sample[:level_cutoff], -3)
+    #         _reference = xp.concatenate(_reference[:level_cutoff], -3)
 
-    # This is likely necessary due to problems with the sub-pixel fitting returning
-    # values outside of the unpadded region - which it shouldn't
-    indices_y = xp.clip(indices_y, 0, disp_y.shape[-2] - 1)  # !!! shouldn't need this
-    indices_x = xp.clip(indices_x, 0, disp_x.shape[-1] - 1)  # !!! shouldn't need this
+    # _cutoff_warning(_sample, _reference, cutoff=cutoff, axis=-3)
+    # _sample = _sample[..., :cutoff, :, :]
+    # _reference = _reference[..., :cutoff, :, :].conj()
 
-    # TODO nin17: need preceeding arrays for broadcasting
-    preceding = ()
-    transmission = (
-        sample_sum[preceding + (indices_y, indices_x)]
-        / reference_sum[preceding + (indices_y, indices_x)]
-    )
-    dark_field = (
-        sample_std[preceding + (indices_y, indices_x)]
-        / reference_std[preceding + (indices_y, indices_x)]
-    ) / transmission
-    return displacement + (transmission, dark_field)
+    # similarity = _similarity_svt(_sample, _reference[..., m:-m, n:-n], m, n).real
+    # similarity_padded = xp.pad(
+    #     similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE
+    # )
+    # displacement = find_displacement(similarity_padded)
+    # # displacement = find_displacement(similarity)
+
+    # sample_sum = sample.sum(axis=-3)
+    # reference_sum = reference.sum(axis=-3)
+    # sample_std = sample.std(axis=-3)
+    # reference_std = reference.std(axis=-3)
+
+    # # TODO nin17: do this inplace - numpy & jax versions separately
+    # disp_y = xp.rint(displacement[0]).astype(xp.int64)
+    # indices_y = disp_y + xp.arange(m, sample.shape[-2] - m, dtype=xp.int64).reshape(
+    #     (1,) * (displacement[0].ndim - 2) + (-1, 1)
+    # )
+    # disp_x = xp.rint(displacement[1]).astype(xp.int64)
+    # indices_x = disp_x + xp.arange(n, sample.shape[-1] - n, dtype=xp.int64).reshape(
+    #     (1,) * (displacement[1].ndim - 1) + (-1,)
+    # )
+
+    # # This is likely necessary due to problems with the sub-pixel fitting returning
+    # # values outside of the unpadded region - which it shouldn't
+    # indices_y = xp.clip(indices_y, 0, disp_y.shape[-2] - 1)  # !!! shouldn't need this
+    # indices_x = xp.clip(indices_x, 0, disp_x.shape[-1] - 1)  # !!! shouldn't need this
+
+    # # TODO nin17: need preceeding arrays for broadcasting
+    # preceding = ()
+    # transmission = (
+    #     sample_sum[preceding + (indices_y, indices_x)]
+    #     / reference_sum[preceding + (indices_y, indices_x)]
+    # )
+    # dark_field = (
+    #     sample_std[preceding + (indices_y, indices_x)]
+    #     / reference_std[preceding + (indices_y, indices_x)]
+    # ) / transmission
+    # return displacement + (transmission, dark_field)

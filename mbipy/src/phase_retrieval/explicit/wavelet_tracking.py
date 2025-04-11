@@ -30,7 +30,7 @@ def level_cutoff_warning(*tuples, level_cutoff=None):
     for i in tuples:
         if len(i) < level_cutoff:
             warnings.warn(
-                f"Level cutoff is too high to take effect, there are {len(i)} levels."
+                f"Level cutoff is too high to take effect, there are {len(i)} levels.",
             )
 
 
@@ -68,7 +68,7 @@ def create_wst(
 
         similarity = similarity_st(vec1, vec2, ss, pcc)
         similarity_padded = xp.pad(
-            similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE
+            similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE,
         )
         return find_displacement(similarity_padded)
 
@@ -95,7 +95,7 @@ def create_wsvt(
 
         vec1 = wavedec(img1, mode=WAVEDEC_MODE, axis=-3, **_wavelet_kwargs)
         vec2 = wavedec(
-            img2[..., m:-m, n:-n], mode=WAVEDEC_MODE, axis=-3, **_wavelet_kwargs
+            img2[..., m:-m, n:-n], mode=WAVEDEC_MODE, axis=-3, **_wavelet_kwargs,
         )
 
         level_cutoff_warning(vec1, vec2, level_cutoff=level_cutoff)
@@ -143,7 +143,7 @@ def create_wst_wsvt(xp, vectors_st_svt, similarity_st, find_displacement, wavede
 
         similarity = similarity_st(vec1, vec2, ss, pcc)
         similarity_padded = xp.pad(
-            similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE
+            similarity, ((0, 0),) * (similarity.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE,
         )
         return find_displacement(similarity_padded)
 

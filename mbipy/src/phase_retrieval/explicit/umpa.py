@@ -3,7 +3,6 @@
 
 __all__ = ("Umpa", "umpa")
 
-import itertools
 
 from numpy import floating
 from numpy.typing import NDArray
@@ -39,7 +38,7 @@ def umpa(
     # if not all(i % 2 == 1 for i in itertools.chain(search_window, template_window)):
     #     raise ValueError("All search and template dimensions must be odd.")
 
-    if weights is None or isinstance(weights, bool) and not weights:
+    if weights is None or (isinstance(weights, bool) and not weights):
         hamming_2 = xp.ones(template_window[0], dtype=float) / template_window[0]
         hamming_1 = xp.ones(template_window[1], dtype=float) / template_window[1]
 
@@ -66,8 +65,10 @@ def umpa(
     start0 = n0 + m0
     start1 = n1 + m1
 
-    s_2 = xp.square(sample)
-    r_2 = xp.square(reference)
+    # s_2 = xp.square(sample)
+    # r_2 = xp.square(reference)
+    s_2 = sample * sample.conj()
+    r_2 = reference * reference.conj()
 
     # convolve1d just calls correlate1d and as hamming is symmetric it doesn't matter
     l1 = correlate1d(s_2, hamming_2, mode="constant", axis=-2)
@@ -85,6 +86,7 @@ def umpa(
     r_tw = r_tw.transpose(tuple(range(r_tw.ndim - 5)) + (-4, -3, -5, -2, -1))
     r_tw = r_tw.reshape(r_tw.shape[:-3] + (-1,))
 
+    sample = sample.conj()
     s_tw = swv(sample, template_window, axis=(-2, -1))
     s_tw = s_tw.transpose(tuple(range(s_tw.ndim - 5)) + (-4, -3, -5, -2, -1))
     s_tw = s_tw.reshape(s_tw.shape[:-3] + (-1,))
@@ -103,11 +105,14 @@ def umpa(
         mean_tw = swv(mean, template_window, axis=(-2, -1))
         mean_tw = mean_tw * hamming2d
         mean_tw = mean_tw.transpose(
-            tuple(range(mean_tw.ndim - 5)) + (-4, -3, -5, -2, -1)
+            tuple(range(mean_tw.ndim - 5)) + (-4, -3, -5, -2, -1),
         )
         mean_tw = mean_tw.reshape(mean_tw.shape[:-3] + (-1,))
 
+        # TODO(nin17): check this is correct
+        # l2 = sum(mean**2) so K*mean**2
         l2 = correlate1d(mean_2, hamming_2, mode="constant", axis=-2)
+        # !!! ok i do sum here, check check check
         l2 = correlate1d(l2, hamming_1, mode="constant", axis=-1).sum(axis=-3)
 
         l4 = xp.einsum("...k,...klm ->...lm", mean_tw[..., n0:-n0, n1:-n1, :], s_tw_sw)
@@ -141,10 +146,10 @@ def umpa(
         _loss = loss.reshape(loss.shape[:-2] + (-1,))
         loss_max = _loss.argmax(axis=-1)
         _alpha = xp.take_along_axis(
-            alpha.reshape(alpha.shape[:-2] + (-1,)), loss_max[..., None], axis=-1
+            alpha.reshape(alpha.shape[:-2] + (-1,)), loss_max[..., None], axis=-1,
         ).squeeze(-1)
         _beta = xp.take_along_axis(
-            beta.reshape(beta.shape[:-2] + (-1,)), loss_max[..., None], axis=-1
+            beta.reshape(beta.shape[:-2] + (-1,)), loss_max[..., None], axis=-1,
         ).squeeze(-1)
 
         transmission = _alpha + _beta
@@ -154,20 +159,20 @@ def umpa(
         loss = (
             l5_2 / l3[..., None, None]
             - l1_sw[..., m0 : -m0 or None, m1 : -m1 or None, :, :]
-        )
+        ).real
         _loss = loss.reshape(loss.shape[:-2] + (-1,))
         loss_max = _loss.argmax(axis=-1)
 
         transmission = (
             xp.take_along_axis(
-                l5.reshape(l5.shape[:-2] + (-1,)), loss_max[..., None], axis=-1
+                l5.reshape(l5.shape[:-2] + (-1,)), loss_max[..., None], axis=-1,
             ).squeeze(-1)
             / l3
         )
         dark_field = None
 
     similarity_padded = xp.pad(
-        loss, ((0, 0),) * (loss.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE
+        loss, ((0, 0),) * (loss.ndim - 2) + ((1, 1), (1, 1)), PAD_MODE,
     )
     displacement = find_displacement(similarity_padded)
     return displacement + (transmission, dark_field)
