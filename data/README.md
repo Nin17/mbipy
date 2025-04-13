@@ -45,8 +45,6 @@ Tomographic phantom from Scientific Solutions imaged at ID17 of the ESRF.
 | "reference" | (10, 611, 2560, 5) | uint16 |
 |  "sample"   | (10, 611, 2560, 5) | uint16 |
 
-## Sandpaper
-
 ## WattleFlower
 
 Wattle flower imaged at hutch 3B of the Imaging and Medical Beamline (IMBL) at the
