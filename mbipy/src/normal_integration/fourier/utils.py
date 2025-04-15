@@ -97,7 +97,7 @@ def _dst1(x, axis=-1):
     x_tilde = xp.concat((zero, -x, zero, xp.flip(x, axis=axis)), axis=axis)
     x_tilde = xp.fft.rfft(x_tilde, axis=axis)
     slices = tuple(slice(1, -1) if i == axis else slice(None) for i in range(x.ndim))
-    return xp.imag(x_tilde[*slices])
+    return xp.imag(x_tilde[slices])
 
 
 def _dstn1(x, type=1, axes=None):
