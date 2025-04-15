@@ -2,6 +2,13 @@
 
 import numpy as np
 
+try:
+    import scipy
+
+    __have_scipy__ = True
+except ImportError:
+    __have_scipy__ = False
+
 from .utils import (
     _Test_arnison,
     _Test_dct_poisson,
@@ -33,9 +40,10 @@ class Test_dst_poisson(_Test_dst_poisson):
     xp = np
 
 
-class Test_li(_Test_li):
-    xp = np
+if __have_scipy__:
 
+    class Test_li(_Test_li):
+        xp = np
 
-class Test_southwell(_Test_southwell):
-    xp = np
+    class Test_southwell(_Test_southwell):
+        xp = np
