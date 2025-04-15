@@ -19,35 +19,24 @@ from mbipy.src.utils import array_namespace, idiv
 def fft2(a, s=None, workers=None, use_rfft=True):
     axes = (-2, -1)
     xp = array_namespace(a)
-    if is_numpy_namespace(xp):
-        if __have_scipy__:
-            fft = importlib.import_module("scipy.fft")
-            _fft2 = fft.rfftn if use_rfft else fft.fftn
-            return _fft2(a, s=s, axes=axes, workers=workers)
-        _fft2 = xp.fft.rfftn if use_rfft else xp.fft.fftn
-        return _fft2(a, s=s, axes=axes)
-    if is_torch_namespace(xp) or is_jax_namespace(xp) or is_cupy_namespace(xp):
-        _fft2 = xp.fft.rfftn if use_rfft else xp.fft.fftn
-        return _fft2(a, s=s, axes=axes)
-    msg = "fft2 is not implemented for this array namespace."
-    raise NotImplementedError(msg)
+    if is_numpy_namespace(xp) and __have_scipy__:
+        fft = importlib.import_module("scipy.fft")
+        _fft2 = fft.rfftn if use_rfft else fft.fftn
+        return _fft2(a, s=s, axes=axes, workers=workers)
+
+    _fft2 = xp.fft.rfftn if use_rfft else xp.fft.fftn
+    return _fft2(a, s=s, axes=axes)
 
 
 def ifft2(a, s=None, workers=None, use_rfft=True):
     axes = (-2, -1)
     xp = array_namespace(a)
-    if is_numpy_namespace(xp):
-        if __have_scipy__:
-            fft = importlib.import_module("scipy.fft")
-            _ifft2 = fft.irfftn if use_rfft else fft.ifftn
-            return _ifft2(a, s=s, axes=axes, workers=workers).real
-        _ifft2 = xp.fft.irfftn if use_rfft else xp.fft.ifftn
-        return _ifft2(a, s=s, axes=axes)
-    if is_torch_namespace(xp) or is_jax_namespace(xp) or is_cupy_namespace(xp):
-        _ifft2 = xp.fft.irfftn if use_rfft else xp.fft.ifftn
-        return _ifft2(a, s=s, axes=axes).real
-    msg = "ifft2 is not implemented for this array namespace."
-    raise NotImplementedError(msg)
+    if is_numpy_namespace(xp) and __have_scipy__:
+        fft = importlib.import_module("scipy.fft")
+        _ifft2 = fft.irfftn if use_rfft else fft.ifftn
+        return _ifft2(a, s=s, axes=axes, workers=workers)
+    _ifft2 = xp.fft.irfftn if use_rfft else xp.fft.ifftn
+    return _ifft2(a, s=s, axes=axes)
 
 
 def dct2(x, workers=None):
@@ -107,7 +96,7 @@ def _dst1(x, axis=-1):
     zero = xp.broadcast_to(xp.zeros((1,), dtype=x.dtype), shape)
     x_tilde = xp.concat((zero, -x, zero, xp.flip(x, axis=axis)), axis=axis)
     x_tilde = xp.fft.rfft(x_tilde, axis=axis)
-    slices = [slice(1, -1) if i == axis else slice(None) for i in range(x.ndim)]
+    slices = tuple(slice(1, -1) if i == axis else slice(None) for i in range(x.ndim))
     return xp.imag(x_tilde[*slices])
 
 
