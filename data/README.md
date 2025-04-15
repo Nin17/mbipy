@@ -5,7 +5,7 @@
 
 ## BeLens
 
-Beryllium lenses imaged at BM05 of the ESRF.
+Beryllium lenses (with a radius of curvature of 50μm, 500μm, 1500μm and 4000μm respectively) imaged at BM05 of the ESRF.
 
 * "50"
 
@@ -39,11 +39,31 @@ Beryllium lenses imaged at BM05 of the ESRF.
 
 Tomographic phantom from Scientific Solutions imaged at ID17 of the ESRF.
 
+Propagation distance 3.545m, pixel size 13.4μm, energies in keV.
+
 |    Keys     |       Shape        | Dtype  |
 | :---------: | :----------------: | :----: |
 | "energies"  |      (10, 5)       | uint16 |
 | "reference" | (10, 611, 2560, 5) | uint16 |
 |  "sample"   | (10, 611, 2560, 5) | uint16 |
+
+## Sandpaper
+
+Sandpaper imaged at Xenocs at different distances: 120cm, 180cm and 320cm.
+
+* "3M"
+
+    | Keys  |      Shape      |  Dtype  |
+    | :---: | :-------------: | :-----: |
+    | "320" | (1700, 928, 10) | float32 |
+
+* "dext"
+
+    | Keys  |      Shape      |  Dtype  |
+    | :---: | :-------------: | :-----: |
+    | "120" | (1700, 928, 10) | float32 |
+    | "180" | (1700, 928, 10) | float32 |
+    | "320" | (1700, 928, 10) | float32 |
 
 ## WattleFlower
 
