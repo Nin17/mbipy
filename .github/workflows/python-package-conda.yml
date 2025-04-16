@@ -97,4 +97,4 @@ jobs:
       continue-on-error: true
     - name: Test with pytest
       run: |
-        python -m pytest tests/**/test_numpy.py
+        python -m pytest 'tests/**/test_numpy.py'
