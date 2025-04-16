@@ -78,6 +78,15 @@ def idiv(a, i, v):
     return a
 
 
+def imul(a, i, v):
+    xp = array_namespace(a)
+    if is_jax_namespace(xp):
+        a = a.at[i].multiply(v)
+    else:
+        a[i] *= v
+    return a
+
+
 def cast_scalar(x, dtype):
     # !!! Dummy function - only needed for it's numba overload
     return x
@@ -109,6 +118,14 @@ if __have_numba__:
     def overload_idiv(a, i, v):
         def impl(a, i, v):
             a[i] /= v
+            return a
+
+        return impl
+
+    @nb.extending.overload(imul)
+    def overload_imul(a, i, v):
+        def impl(a, i, v):
+            a[i] *= v
             return a
 
         return impl
