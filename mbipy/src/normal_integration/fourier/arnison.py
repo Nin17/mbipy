@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from mbipy.src.normal_integration.fourier.utils import fft2, ifft2
 from mbipy.src.normal_integration.padding import antisym
 from mbipy.src.normal_integration.utils import check_shapes
-from mbipy.src.utils import array_namespace, cast_scalar, idiv, setitem
+from mbipy.src.utils import array_namespace, cast_scalar, idiv, imul, setitem
 
 if TYPE_CHECKING:
     from numpy import floating
@@ -82,7 +82,7 @@ def arnison(
         fx = xp.astype(xp.fft.rfftfreq(x2), dtype, copy=False)
     else:
         fx = xp.astype(xp.fft.fftfreq(x2), dtype, copy=False)
-    fy = xp.astype(xp.fft.fftfreq(y2)[:, None], dtype, copy=False)
+    fy = xp.astype(xp.fft.fftfreq(y2), dtype, copy=False)
 
     # !!! Cast scalars to the same dtype as the result. Necessary for Numba.
     zero = cast_scalar(0.0, dtype)
@@ -91,8 +91,9 @@ def arnison(
     one_j = cast_scalar(1j, cdtype)
     two_j = cast_scalar(2j, cdtype)
 
-    fx *= pi
-    fy *= pi
+    fx = imul(fx, slice(0, None), pi)
+    fy = imul(fy, slice(0, None), pi)
+
     sinfx = xp.sin(fx)  # TODO(nin17): inplace
     sinfy = xp.sin(fy)
 
@@ -103,9 +104,9 @@ def arnison(
     else:
         # !!! Pass use_rfft=None for Numba to avoid type errors in compilation
         f_num = fft2(gx + one_j * gy, s=s, workers=workers, use_rfft=None)
-    f_den = two_j * (sinfx + one_j * sinfy)
+    f_den = two_j * (sinfx + one_j * sinfy[:, None])
 
     f_den = setitem(f_den, (..., 0, 0), one)  # avoid division by zero warning
     frac = idiv(f_num, (...,), f_den)
     frac = setitem(frac, (..., 0, 0), zero)
-    return ifft2(frac, s=s, workers=workers, use_rfft=use_rfft)[..., :y, :x]
+    return xp.real(ifft2(frac, s=s, workers=workers, use_rfft=use_rfft)[..., :y, :x])

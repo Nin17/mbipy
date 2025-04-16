@@ -13,6 +13,8 @@ __all__ = ("dst_poisson",)
 
 from typing import TYPE_CHECKING
 
+from numpy import broadcast_shapes
+
 from mbipy.src.normal_integration.fourier.utils import dst2, idst2
 from mbipy.src.normal_integration.utils import check_shapes
 from mbipy.src.utils import array_namespace, cast_scalar, isub, setitem
@@ -60,9 +62,9 @@ def dst_poisson(
     # !!! Slower algorithm if not using SciPy or Numba: doubles the array size
     sy, sx = check_shapes(gx, gy)
     if ub is not None:
-        result_shape = xp.broadcast_shapes(gy.shape, gx.shape, ub.shape)
+        result_shape = broadcast_shapes(gy.shape, gx.shape, ub.shape)
     else:
-        result_shape = xp.broadcast_shapes(gy.shape, gx.shape)
+        result_shape = broadcast_shapes(gy.shape, gx.shape)
 
     # !!! Cast scalars to the same dtype as the result. Necessary for Numba.
     half = cast_scalar(0.5, dtype)

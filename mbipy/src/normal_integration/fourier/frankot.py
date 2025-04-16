@@ -104,4 +104,4 @@ def frankot(
     f_den = setitem(f_den, (..., 0, 0), one)  # avoid division by zero warning
     f_phase = idiv(f_num, (...,), f_den)  # f_num is f_phase
     f_phase = setitem(f_phase, (..., 0, 0), zero)
-    return ifft2(f_phase, s=s, workers=workers, use_rfft=use_rfft)[..., :y, :x]
+    return xp.real(ifft2(f_phase, s=s, workers=workers, use_rfft=use_rfft)[..., :y, :x])
