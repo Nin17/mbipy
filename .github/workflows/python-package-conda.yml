@@ -32,7 +32,7 @@ jobs:
         python -m pip install pytest pytest-env pytest-randomly ruff numpy~=2.0 scipy .
     - name: Lint with Ruff
       run: |
-        ruff --output-format=github .
+        ruff check --output-format=github .
       continue-on-error: true
     - name: Test with pytest
       run: |
@@ -62,7 +62,7 @@ jobs:
         python -m pip install pytest pytest-env pytest-randomly ruff numpy~=2.0 scipy .
     - name: Lint with Ruff
       run: |
-        ruff --output-format=github .
+        ruff check --output-format=github .
       continue-on-error: true
     - name: Test with pytest
       run: |
@@ -93,7 +93,7 @@ jobs:
         python -m pip install pytest pytest-env pytest-randomly ruff numpy~=2.0 scipy .
     - name: Lint with Ruff
       run: |
-        ruff --output-format=github .
+        ruff check --output-format=github .
       continue-on-error: true
     - name: Test with pytest
       run: |
