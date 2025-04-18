@@ -9,28 +9,28 @@ Beryllium lenses (with a radius of curvature of 50μm, 500μm, 1500μm and 4000�
 
 * "50"
 
-    |    Keys     |     Shape      | Dtype  |
+    |    Keys     |     Shape      | DType  |
     | :---------: | :------------: | :----: |
     | "reference" | (900, 900, 10) | uint16 |
     |  "sample"   | (900, 900, 10) | uint16 |
 
 * "500"
 
-    |    Keys     |      Shape       | Dtype  |
+    |    Keys     |      Shape       | DType  |
     | :---------: | :--------------: | :----: |
     | "reference" | (2048, 2048, 10) | uint16 |
     |  "sample"   | (2048, 2048, 10) | uint16 |
 
 * "1500"
 
-    |    Keys     |      Shape       | Dtype  |
+    |    Keys     |      Shape       | DType  |
     | :---------: | :--------------: | :----: |
     | "reference" | (2048, 2048, 10) | uint16 |
     |  "sample"   | (2048, 2048, 10) | uint16 |
 
 * "4000"
 
-    |    Keys     |      Shape       | Dtype  |
+    |    Keys     |      Shape       | DType  |
     | :---------: | :--------------: | :----: |
     | "reference" | (2048, 2048, 10) | uint16 |
     |  "sample"   | (2048, 2048, 10) | uint16 |
@@ -41,11 +41,11 @@ Tomographic phantom from Scientific Solutions imaged at ID17 of the ESRF.
 
 Propagation distance 3.545m, pixel size 13.4μm, energies in keV.
 
-|    Keys     |       Shape        | Dtype  |
+|    Keys     |       Shape        | DType  |
 | :---------: | :----------------: | :----: |
-| "energies"  |      (10, 5)       | uint16 |
-| "reference" | (10, 611, 2560, 5) | uint16 |
-|  "sample"   | (10, 611, 2560, 5) | uint16 |
+| "energies"  |      (5, 10)       | uint16 |
+| "reference" | (611, 2560, 5, 10) | uint16 |
+|  "sample"   | (611, 2560, 5, 10) | uint16 |
 
 ## Sandpaper
 
@@ -53,13 +53,13 @@ Sandpaper imaged at Xenocs at different distances: 120cm, 180cm and 320cm.
 
 * "3M"
 
-    | Keys  |      Shape      |  Dtype  |
+    | Keys  |      Shape      |  DType  |
     | :---: | :-------------: | :-----: |
     | "320" | (1700, 928, 10) | float32 |
 
 * "dext"
 
-    | Keys  |      Shape      |  Dtype  |
+    | Keys  |      Shape      |  DType  |
     | :---: | :-------------: | :-----: |
     | "120" | (1700, 928, 10) | float32 |
     | "180" | (1700, 928, 10) | float32 |
@@ -70,7 +70,7 @@ Sandpaper imaged at Xenocs at different distances: 120cm, 180cm and 320cm.
 Wattle flower imaged at hutch 3B of the Imaging and Medical Beamline (IMBL) at the
 Australian Synchrotron [[1]](#1).
 
-|    Keys     |      Shape       |  Dtype  |
+|    Keys     |      Shape       |  DType  |
 | :---------: | :--------------: | :-----: |
 |   "dark"    | (2157, 2560, 15) | float32 |
 | "reference" | (2157, 2560, 15) | float32 |
@@ -79,7 +79,7 @@ Australian Synchrotron [[1]](#1).
 
 ## WireID17
 
-|    Keys     |      Shape       | Dtype  |
+|    Keys     |      Shape       | DType  |
 | :---------: | :--------------: | :----: |
 | "reference" | (2160, 2560, 10) | uint16 |
 |  "sample"   | (2160, 2560, 10) | uint16 |
@@ -88,35 +88,35 @@ Australian Synchrotron [[1]](#1).
 
 * "400"
 
-    |    Keys     |      Shape      |  Dtype  |
+    |    Keys     |      Shape      |  DType  |
     | :---------: | :-------------: | :-----: |
     | "reference" | (1028, 512, 10) | float32 |
     |  "sample"   | (1028, 512, 10) | float32 |
 
 * "800"
 
-    |    Keys     |      Shape      |  Dtype  |
+    |    Keys     |      Shape      |  DType  |
     | :---------: | :-------------: | :-----: |
     | "reference" | (1030, 514, 10) | float32 |
     |  "sample"   | (1030, 514, 10) | float32 |
 
 * "1200"
 
-    |    Keys     |      Shape      |  Dtype  |
+    |    Keys     |      Shape      |  DType  |
     | :---------: | :-------------: | :-----: |
     | "reference" | (1030, 514, 10) | float32 |
     |  "sample"   | (1030, 514, 10) | float32 |
 
 * "2200"
 
-    |    Keys     |      Shape      |  Dtype  |
+    |    Keys     |      Shape      |  DType  |
     | :---------: | :-------------: | :-----: |
     | "reference" | (1030, 514, 10) | float32 |
     |  "sample"   | (1030, 514, 10) | float32 |
 
 * "3200"
 
-    |    Keys     |      Shape      |  Dtype  |
+    |    Keys     |      Shape      |  DType  |
     | :---------: | :-------------: | :-----: |
     | "reference" | (1030, 514, 10) | float32 |
     |  "sample"   | (1030, 514, 10) | float32 |
