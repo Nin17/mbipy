@@ -5,7 +5,8 @@
 
 ## BeLens
 
-Beryllium lenses (with a radius of curvature of 50μm, 500μm, 1500μm and 4000μm respectively) imaged at BM05 of the ESRF.
+Beryllium lenses (with a radius of curvature of 50μm, 500μm, 1500μm and 4000μm
+respectively) imaged at BM05 of the ESRF.
 
 * "50"
 
@@ -124,4 +125,6 @@ Australian Synchrotron [[1]](#1).
 ## References
 
 <a id="1">[1]</a>
-Alloo, S.J., Morgan, K.S., Paganin, D.M. et al. M﻿ultimodal intrinsic speckle-tracking (MIST) to extract images of rapidly-varying diffuse X-ray dark-field. Sci Rep 13, 5424 (2023). <https://doi.org/10.1038/s41598-023-31574-z>
+Alloo, S.J., Morgan, K.S., Paganin, D.M. et al. Multimodal intrinsic speckle-tracking
+(MIST) to extract images of rapidly-varying diffuse X-ray dark-field. Sci Rep 13, 5424
+(2023). <https://doi.org/10.1038/s41598-023-31574-z>
