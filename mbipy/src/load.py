@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
     StrPath = str | PathLike[str]
 
-__all__ = ("load_stack",)
+__all__ = ("load_data", "load_paths", "load_stack")
 
 
 def load_data(path: StrPath, *, frame: None = None) -> NDArray:
