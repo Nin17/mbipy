@@ -47,32 +47,12 @@ def load_paths(
     out: NDArray | None = None,
     dtype: None = None,
 ) -> list[NDArray] | NDArray:
-    # TODO(nin17): Docstring
-    images = [load_data(i, frame=frame) for i in paths]
-    if axis is None:
-        return images
-    return np.stack(images, axis=axis, out=out, dtype=dtype)
-
-
-def load_stack(  # noqa: PLR0913
-    path: StrPath,
-    *patterns: str,
-    case_sensitive: bool | None = None,
-    frame: None = None,
-    axis: int | None = None,
-    out: NDArray | None = None,
-    dtype: DTypeLike | None = None,
-) -> list[NDArray] | NDArray:
-    """Load all images matching the patterns, sorted by path, from a directory.
+    """Load images from paths.
 
     Parameters
     ----------
-    path : StrPath
-        Path to the directory containing the images.
-    *patterns : str
-        Patterns to match the files.
-    case_sensitive : bool | None, optional
-        Passed to Path(path).glob, by default None
+    *paths : StrPath
+        Paths to the images.
     frame : None, optional
         Passed to fabio.open, by default None
     axis : int | None, optional
@@ -87,10 +67,52 @@ def load_stack(  # noqa: PLR0913
     -------
     list[NDArray] | NDArray
         If axis is None, returns a list of NDArrays, otherwise returns a single NDArray.
+    """
+    images = [load_data(i, frame=frame) for i in paths]
+    if axis is None:
+        return images
+    return np.stack(images, axis=axis, out=out, dtype=dtype)
+
+
+def load_stack(
+    path: StrPath,
+    *patterns: str,
+    frame: None = None,
+    axis: int | None = None,
+    out: NDArray | None = None,
+    dtype: DTypeLike | None = None,
+    **kwargs: bool,
+) -> list[NDArray] | NDArray:
+    """Load all images matching the patterns, sorted by path, from a directory.
+
+    Parameters
+    ----------
+    path : StrPath
+        Path to the directory containing the images.
+    *patterns : str
+        Patterns to match the files.
+    frame : None, optional
+        Passed to fabio.open, by default None
+    axis : int | None, optional
+        If None, returns a list of NDArrays, otherwise passed to np.stack, by default
+        None
+    out : NDArray | None, optional
+        Passed to np.stack if axis is not None, by default None
+    dtype : DTypeLike | None, optional
+        Passed to np.stack if axis is not None, by default None
+    **kwargs : bool
+        Additional keyword arguments passed to Path.glob.
+        case_sensitive: bool | None (python >= 3.12)
+        recurse_symlinks: bool (python >= 3.13)
+
+    Returns
+    -------
+    list[NDArray] | NDArray
+        If axis is None, returns a list of NDArrays, otherwise returns a single NDArray.
 
     """
     _path = Path(path)
     file_paths = sorted(
-        chain(*[_path.glob(p, case_sensitive=case_sensitive) for p in patterns]),
+        chain(*[_path.glob(p, **kwargs) for p in patterns]),
     )
     return load_paths(*file_paths, frame=frame, axis=axis, out=out, dtype=dtype)
