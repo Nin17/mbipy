@@ -126,7 +126,7 @@ class BaseSparseNormalIntegration:
         self.idtype = idtype
         self.fdtype = fdtype
 
-        f, mt = self._factorize_func(shape, xp, idtype, fdtype)
+        f, mt = self._factorized_mt_func(shape, xp, idtype, fdtype)
         self._f = f
         self._mt = mt
 

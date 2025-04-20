@@ -160,7 +160,7 @@ class Southwell(BaseSparseNormalIntegration):
     """
 
     @staticmethod
-    def _factorized_func(
+    def _factorized_mt_func(
         shape: tuple[int, int],
         xp: ModuleType,
         idtype: DTypeLike,
