@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable
 
 import numpy as np
+from numpy import broadcast_shapes
 
 from mbipy.src.config import __have_numba__
 
@@ -22,7 +23,7 @@ def check_shapes(*arrays: NDArray) -> tuple[int, int]:
         Shape of the last two dimensions of the broadcasted arrays.
 
     """
-    return np.broadcast_shapes(*(i.shape for i in arrays))[-2:]
+    return broadcast_shapes(*(i.shape for i in arrays))[-2:]
 
 
 if __have_numba__:
