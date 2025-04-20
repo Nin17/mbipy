@@ -6,12 +6,10 @@ __all__ = ("antisym",)
 
 from typing import TYPE_CHECKING
 
-from mbipy.src.config import __have_numba__
 from mbipy.src.normal_integration.utils import check_shapes
 from mbipy.src.utils import array_namespace, setitem
 
 if TYPE_CHECKING:
-    from typing import Callable
 
     from numpy import floating
     from numpy.typing import NDArray
@@ -76,53 +74,3 @@ def antisym(
     # as_gy[..., y:, x:] = gy_neg[..., ::-1, ::-1]
 
     return as_gy, as_gx
-
-
-# TODO(nin17): move to an overload.py file
-if __have_numba__:
-    from numba import extending, types
-    from numba.core import errors
-
-    @extending.overload(flip)
-    def flip_overload(
-        m: types.Array,
-        axis: types.Integer | types.UniTuple | types.NoneType = None,
-    ) -> Callable:
-        if not isinstance(m, types.Array):
-            msg = f"a must be an array, got {m}."
-            raise errors.NumbaTypeError(msg)
-        if isinstance(axis, types.Integer):
-
-            def impl(
-                m: types.Array,
-                axis: types.Integer | types.UniTuple | types.NoneType = None,
-            ) -> types.Array:
-                if axis == -1:
-                    return m[..., ::-1]
-                if axis == -2:  # noqa: PLR2004
-                    return m[..., ::-1, :]
-                msg = "Invalid axis."
-                raise ValueError(msg)
-
-        elif isinstance(axis, types.UniTuple):
-
-            def impl(
-                m: types.Array,
-                axis: types.Integer | types.UniTuple | types.NoneType = None,
-            ) -> types.Array:
-                if axis == (-2, -1):
-                    return m[..., ::-1, ::-1]
-                msg = "Invalid axis"
-                raise ValueError(msg)
-
-        elif isinstance(axis, types.NoneType):
-            msg = "axis=None is not implemented yet"
-            raise errors.NumbaNotImplementedError(msg)
-
-        else:
-            valid_types = "types.Integer or types.UniTuple"
-            msg = f"Invalid axis type: {axis}. Should be {valid_types}."
-            raise errors.NumbaTypeError(msg)
-        return impl
-
-    extending.register_jitable(antisym)
