@@ -7,7 +7,12 @@ __all__ = ("BaseSparseNormalIntegration", "csr_matrix", "factorized")
 import importlib
 from typing import TYPE_CHECKING
 
-from array_api_compat import array_namespace, is_cupy_namespace, is_numpy_namespace
+from array_api_compat import (
+    array_namespace,
+    is_cupy_namespace,
+    is_jax_namespace,
+)
+from numpy import broadcast_shapes
 
 if TYPE_CHECKING:
 
@@ -23,7 +28,30 @@ if TYPE_CHECKING:
         from scipy.sparse import spmatrix
 
 
-# TODO(nin17): docstring
+def add_out2d(x1: NDArray, x2: NDArray, out: NDArray) -> NDArray:
+    xp = array_namespace(x1, x2, out)
+    try:
+        xp.add(x1, x2, out=out)
+    except TypeError:
+        if is_jax_namespace(xp):
+            out = out.at[:, :].set(xp.add(x1, x2))
+        else:
+            out[:, :] = xp.add(x1, x2)
+    return out
+
+
+def mul_out2d(x1: NDArray, x2: NDArray, out: NDArray) -> NDArray:
+    xp = array_namespace(x1, x2, out)
+    try:
+        xp.multiply(x1, x2, out=out)
+    except TypeError:
+        if is_jax_namespace(xp):
+            out = out.at[:, :].set(xp.multiply(x1, x2))
+        else:
+            out[:, :] = xp.multiply(x1, x2)
+    return out
+
+
 def csr_matrix(
     data: NDArray[floating],
     rows: NDArray[integer],
@@ -37,50 +65,50 @@ def csr_matrix(
     Parameters
     ----------
     data : NDArray[floating]
-        _description_
+        data values
     rows : NDArray[integer]
-        _description_
+        row indices
     cols : NDArray[integer]
-        _description_
+        column indices
     shape : tuple[int, int]
-        _description_
+        shape of the sparse matrix.
 
     Returns
     -------
     spmatrix
-        _description_
+        sparse matrix in Compressed Sparse Row format.
     """
     xp = array_namespace(data, rows, cols)
-    if is_numpy_namespace(xp):
-        sparse = importlib.import_module("scipy.sparse")
-    elif is_cupy_namespace(xp):
+    if is_cupy_namespace(xp):
         sparse = importlib.import_module("cupyx.scipy.sparse")
+    else:
+        sparse = importlib.import_module("scipy.sparse")
     return sparse.csr_matrix((data, (rows, cols)), shape=shape)
 
 
-# TODO(nin17): docstring
-def factorized(A: spmatrix) -> Callable[[NDArray[floating]], NDArray[floating]]:
+def factorized(a: spmatrix) -> Callable[[NDArray[floating]], NDArray[floating]]:
     """Return a function for solving a sparse linear system, with A pre-factorized.
 
     Parameters
     ----------
-    A : spmatrix
-        _description_
+    a : spmatrix
+        sparse matrix in Compressed Sparse Column format.
 
     Returns
     -------
     Callable[[NDArray[floating]], NDArray[floating]]
-        _description_
+        function that takes a vector and returns the solution to the linear system.
     """
-    xp = array_namespace(A.data, A.indices, A.indptr)
-    if is_numpy_namespace(xp):
-        splinalg = importlib.import_module("scipy.sparse.linalg")
-    elif is_cupy_namespace(xp):
+    xp = array_namespace(a.data, a.indices, a.indptr)
+    if is_cupy_namespace(xp):
         splinalg = importlib.import_module("cupyx.scipy.sparse.linalg")
-    return splinalg.factorized(A)
+    else:
+        splinalg = importlib.import_module("scipy.sparse.linalg")
+    return splinalg.factorized(a)
 
 
 class BaseSparseNormalIntegration:
+    """Base class for sparse least squares normal integration."""
 
     def __init__(
         self,
@@ -98,14 +126,12 @@ class BaseSparseNormalIntegration:
         self.idtype = idtype
         self.fdtype = fdtype
 
-        # TODO(nin17): use _factorized instead of _mat_func
-        m = self._mat_func(shape, xp, idtype, fdtype)
-        mt = m.T
-
-        self._f = factorized(mt @ m)
+        f, mt = self._factorize_func(shape, xp, idtype, fdtype)
+        self._f = f
         self._mt = mt
 
     def __repr__(self) -> str:
+        """Representation of sparse normal integration classes."""
         return (
             f"{self.__class__.__name__}({self.shape}, xp={self.xp.__name__}, "
             f"idtype={self.idtype.__name__}, fdtype={self.fdtype.__name__})"
@@ -131,23 +157,23 @@ class BaseSparseNormalIntegration:
             Normal field.
 
         """
-        shape = self.xp.broadcast_shapes(gy.shape, gx.shape)
+        shape = broadcast_shapes(gy.shape, gx.shape)
         if shape != self.shape:
             msg = "Input arrays must have the same shape as the object."
             raise ValueError(msg)
         vector = self._vec_func(gy, gx)
 
-        return self._f(self._mt @ vector).reshape(shape)
+        return self.xp.reshape(self._f(self._mt @ vector), shape)
 
     @staticmethod
-    def _mat_func(
+    def _factorized_mt_func(
         shape: tuple[int, int],
         xp: ModuleType,
         idtype: DTypeLike,
         fdtype: DTypeLike,
-    ) -> spmatrix:
-        """Matrix function to be implemented by subclasses."""
-        msg = "Subclasses must implement _mat_func."
+    ) -> tuple[Callable[[NDArray], NDArray], spmatrix]:
+        """Factorization and transpose of matrix: to be implemented by subclasses."""
+        msg = "Subclasses must implement _factorize_func."
         raise NotImplementedError(msg)
 
     @staticmethod

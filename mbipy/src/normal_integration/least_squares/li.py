@@ -13,10 +13,14 @@ __all__ = ("Li", "li")
 import functools
 from typing import TYPE_CHECKING
 
+from numpy import broadcast_shapes
+
 from mbipy.src.normal_integration.least_squares.utils import (
     BaseSparseNormalIntegration,
+    add_out2d,
     csr_matrix,
     factorized,
+    mul_out2d,
 )
 from mbipy.src.utils import array_namespace
 
@@ -50,7 +54,7 @@ def _li_vec(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
 
     """
     xp = array_namespace(gy, gx)
-    shape = xp.broadcast_shapes(gy.shape, gx.shape)
+    shape = broadcast_shapes(gy.shape, gx.shape)
     result_type = xp.result_type(gy, gx)
     i, j = shape
     j_3 = j - 3
@@ -66,9 +70,9 @@ def _li_vec(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
 
     w1 = w[:ij_3]
     out1 = out[:ij_3]
-    # 13 / 24 * (gx[:, 1:-2] - 1 / 13 * gx[:, :-3] + gx[:, 2:-1] - 1 / 13 * gx[:, 3:])
-    xp.add(gx[:, 1:-2], gx[:, 2:-1], out=xp.reshape(out1, (i, j_3), copy=False))
-    xp.add(gx[:, :-3], gx[:, 3:], out=xp.reshape(w1, (i, j_3), copy=False))
+    # 13 / 24 * (gx[:, 1:-2] + gx[:, 2:-1] - 1 / 13 * (gx[:, :-3] + gx[:, 3:]))
+    add_out2d(gx[:, 1:-2], gx[:, 2:-1], out=xp.reshape(out1, (i, j_3), copy=False))
+    add_out2d(gx[:, :-3], gx[:, 3:], out=xp.reshape(w1, (i, j_3), copy=False))
     w1 /= 13.0
     out1 -= w1
     # !!! Done later: out[:ij_3] *= 13 / 24
@@ -76,28 +80,32 @@ def _li_vec(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
 
     w2 = w[:ji_3]
     out2 = out[ij_3:_s]
-    # 13 / 24 * (gy[1:-2, :] - 1 / 13 * gy[:-3, :] + gy[2:-1, :] - 1 / 13 * gy[3:, :])
-    xp.add(gy[1:-2, :], gy[2:-1, :], out=xp.reshape(out2, (i_3, j), copy=False))
-    xp.add(gy[:-3, :], gy[3:, :], out=xp.reshape(w2, (i_3, j), copy=False))
+    # 13 / 24 * (gy[1:-2, :] + gy[2:-1, :] - 1 / 13 * (gy[:-3, :] + gy[3:, :]))
+    add_out2d(gy[1:-2, :], gy[2:-1, :], out=xp.reshape(out2, (i_3, j), copy=False))
+    add_out2d(gy[:-3, :], gy[3:, :], out=xp.reshape(w2, (i_3, j), copy=False))
     w2 /= 13.0
     out2 -= w2
     out[:_s] *= 13.0 / 24.0  # !!! Here!
     del w2, out2  # Deletes the views, not the data - avoid accidental reuse
 
+    a0_3 = xp.asarray([0, -3], dtype=xp.int64)
+    a2_1 = xp.asarray([2, -1], dtype=xp.int64)
+    a1_2 = xp.asarray([1, -2], dtype=xp.int64)
+
     w3 = w[: i * 2]
     out3 = out[_s : _s + 2 * i]
-    # (gx[:, (0, -3)] + 4.0 * gx[:, (1, -2)] + gx[:, (2, -1)]) / 3.0
-    xp.add(gx[:, (0, -3)], gx[..., (2, -1)], out=xp.reshape(out3, (i, 2), copy=False))
-    xp.multiply(gx[..., (1, -2)], 4.0, out=xp.reshape(w3, (i, 2), copy=False))
+    # (gx[:, (0, -3)] + gx[:, (2, -1) + 4.0 * gx[:, (1, -2)]]) / 3.0
+    add_out2d(gx[:, a0_3], gx[:, a2_1], out=xp.reshape(out3, (i, 2), copy=False))
+    mul_out2d(gx[:, a1_2], 4.0, out=xp.reshape(w3, (i, 2), copy=False))
     out3 += w3
     out3 /= 3.0
     del w3, out3  # Deletes the views, not the data - avoid accidental reuse
 
     w4 = w[: 2 * j]
     out4 = out[_s + 2 * i :]
-    # (gy[(0, -3), :] + 4.0 * gy[(1, -2), :] + gy[(2, -1), :]) / 3.0
-    xp.add(gy[(0, -3), :], gy[(2, -1), :], out=xp.reshape(out4, (2, j), copy=False))
-    xp.multiply(gy[(1, -2), :], 4.0, out=xp.reshape(w4, (2, j), copy=False))
+    # (gy[(0, -3), :] + gy[(2, -1), :] + 4.0 * gy[(1, -2), :]) / 3.0
+    add_out2d(gy[a0_3, :], gy[a2_1, :], out=xp.reshape(out4, (2, j), copy=False))
+    mul_out2d(gy[a1_2, :], 4.0, out=xp.reshape(w4, (2, j), copy=False))
     out4 += w4
     out4 /= 3.0
     del w4, out4, w  # Deletes the views, not the data - avoid accidental reuse
@@ -160,7 +168,7 @@ def _li_matrix(
 
 
 @functools.lru_cache
-def _li_factorized(
+def _li_factorized_mt(
     shape: tuple[int, int],
     xp: ModuleType,
     idtype: DTypeLike,
@@ -193,7 +201,7 @@ def li(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
 
     """
     xp = array_namespace(gy, gx)
-    shape = xp.broadcast_shapes(gy.shape, gx.shape)
+    shape = broadcast_shapes(gy.shape, gx.shape)
     i, j = shape
     stop = 2 * i * j - i - j
     idtype = xp.int32 if stop < xp.iinfo(xp.int32).max else xp.int64
@@ -201,11 +209,11 @@ def li(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
 
     vector = _li_vec(gy, gx)
 
-    f, mt = _li_factorized(shape, xp, idtype, fdtype)
+    f, mt = _li_factorized_mt(shape, xp, idtype, fdtype)
 
     mt_vector = mt @ vector
 
-    return f(mt_vector).reshape(shape)
+    return xp.reshape(xp.asarray(f(mt_vector)), shape)
 
 
 class Li(BaseSparseNormalIntegration):
@@ -218,13 +226,13 @@ class Li(BaseSparseNormalIntegration):
     """
 
     @staticmethod
-    def _mat_func(
+    def _factorized_mt_func(
         shape: tuple[int, int],
         xp: ModuleType,
         idtype: DTypeLike,
         fdtype: DTypeLike,
-    ) -> spmatrix:
-        return _li_matrix(shape, xp, idtype, fdtype)
+    ) -> tuple[Callable[[NDArray], NDArray], spmatrix]:
+        return _li_factorized_mt(shape, xp, idtype, fdtype)
 
     @staticmethod
     def _vec_func(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:

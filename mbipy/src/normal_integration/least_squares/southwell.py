@@ -12,8 +12,11 @@ __all__ = ("Southwell", "southwell")
 import functools
 from typing import TYPE_CHECKING
 
+from numpy import broadcast_shapes
+
 from mbipy.src.normal_integration.least_squares.utils import (
     BaseSparseNormalIntegration,
+    add_out2d,
     csr_matrix,
     factorized,
 )
@@ -49,7 +52,7 @@ def _southwell_vec(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floa
 
     """
     xp = array_namespace(gy, gx)
-    shape = xp.broadcast_shapes(gy.shape, gx.shape)
+    shape = broadcast_shapes(gy.shape, gx.shape)
     result_type = xp.result_type(gy.dtype, gx.dtype)
     i, j = shape
     i_1 = i - 1
@@ -58,9 +61,9 @@ def _southwell_vec(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floa
 
     out = xp.empty(2 * i * j - i - j, dtype=result_type)
     # 0.5 * (gx[:, 1:] + gx[:, :-1])
-    xp.add(gx[:, 1:], gx[:, :-1], out=xp.reshape(out[:ij_1], (i, j_1), copy=False))
+    add_out2d(gx[:, 1:], gx[:, :-1], out=xp.reshape(out[:ij_1], (i, j_1), copy=False))
     # 0.5 * (gy[:-1, :] + gy[1:, :])
-    xp.add(gy[:-1, :], gy[1:, :], out=xp.reshape(out[ij_1:], (i_1, j), copy=False))
+    add_out2d(gy[:-1, :], gy[1:, :], out=xp.reshape(out[ij_1:], (i_1, j), copy=False))
     out /= 2.0
     return out
 
@@ -80,28 +83,28 @@ def _southwell_matrix(
     array = xp.arange(stop, dtype=idtype)
 
     rows = xp.empty((2, stop), dtype=idtype)
-    rows[:] = array
+    rows[:, :] = array
     rows = xp.reshape(rows, -1, copy=False)
 
     cols = xp.empty((2, stop), dtype=idtype)
     col_view1 = xp.reshape(cols[:, :ij_1], (2, i, j - 1), copy=False)
-    col_view1[:] = xp.reshape(array[:n], (i, j), copy=False)[:, :-1]
-    col_view1[1] += 1  # !!! to avoid copy in the above reshape
+    col_view1[:, :, :] = xp.reshape(array[:n], (i, j), copy=False)[:, :-1]
+    col_view1[1, :, :] += 1  # !!! to avoid copy in the above reshape
     del col_view1  # Deletes the view, not the data - avoid accidental reuse
     cols[0, ij_1:] = array[:ji_1]
     cols[1, ij_1:] = array[j : i * j]
     cols = xp.reshape(cols, -1, copy=False)
 
     data = xp.empty((2, stop), dtype=fdtype)
-    data[0] = -1.0
-    data[1] = 1.0
+    data[0, :] = -1.0
+    data[1, :] = 1.0
     data = xp.reshape(data, -1, copy=False)
 
     return csr_matrix(data, rows, cols, shape=(stop, n))
 
 
 @functools.lru_cache
-def _southwell_factorized(
+def _southwell_factorized_mt(
     shape: tuple[int, int],
     xp: ModuleType,
     idtype: DTypeLike,
@@ -133,7 +136,7 @@ def southwell(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]
 
     """
     xp = array_namespace(gy, gx)
-    shape = xp.broadcast_shapes(gy.shape, gx.shape)
+    shape = broadcast_shapes(gy.shape, gx.shape)
     i, j = shape
     stop = 2 * i * j - i - j
     idtype = xp.int32 if stop < xp.iinfo(xp.int32).max else xp.int64
@@ -141,11 +144,11 @@ def southwell(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]
 
     vector = _southwell_vec(gy, gx)
 
-    f, mt = _southwell_factorized(shape, xp, idtype, fdtype)
+    f, mt = _southwell_factorized_mt(shape, xp, idtype, fdtype)
 
     mt_vector = mt @ vector
 
-    return f(mt_vector).reshape(shape)
+    return xp.reshape(xp.asarray(f(mt_vector)), shape)
 
 
 class Southwell(BaseSparseNormalIntegration):
@@ -157,13 +160,13 @@ class Southwell(BaseSparseNormalIntegration):
     """
 
     @staticmethod
-    def _mat_func(
+    def _factorized_func(
         shape: tuple[int, int],
         xp: ModuleType,
         idtype: DTypeLike,
         fdtype: DTypeLike,
-    ) -> spmatrix:
-        return _southwell_matrix(shape, xp, idtype, fdtype)
+    ) -> tuple[Callable[[NDArray], NDArray], spmatrix]:
+        return _southwell_factorized_mt(shape, xp, idtype, fdtype)
 
     @staticmethod
     def _vec_func(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
