@@ -10,10 +10,15 @@ from __future__ import annotations
 __all__ = ("frankot",)
 
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
-from mbipy.src.normal_integration.fourier.utils import fft2, ifft2
-from mbipy.src.normal_integration.padding import antisym
+from mbipy.src.normal_integration.fourier.padding import antisym
+from mbipy.src.normal_integration.fourier.utils import (
+    fft_2d,
+    ifft_2d,
+    irfft_2d,
+    rfft_2d,
+)
 from mbipy.src.normal_integration.utils import check_shapes
 from mbipy.src.utils import array_namespace, cast_scalar, idiv, setitem
 
@@ -25,9 +30,9 @@ if TYPE_CHECKING:
 def frankot(
     gy: NDArray[floating],
     gx: NDArray[floating],
-    pad: str | None = None,
+    pad: Literal["antisym"] | None = None,
     workers: int | None = None,
-    use_rfft: bool = True,
+    use_rfft: bool | None = None,
 ) -> NDArray[floating]:
     """Perform normal integration using the method of Frankot and Chellappa.
 
@@ -41,12 +46,12 @@ def frankot(
         Vertical gradient(s).
     gx : (..., M, N) NDArray[floating]
         Horizontal gradient(s).
-    pad : str | None, optional
+    pad : Literal["antisym"] | None, optional
         Type of padding to apply: "antisym" | None , by default None
     workers : int | None, optional
         Passed to scipy.fft fftn & ifftn, by default None
-    use_rfft : bool, optional
-        Use a rfftn instead of fftn, by default True
+    use_rfft : bool | None, optional
+        Use a rfftn instead of fftn, by default None
 
     Returns
     -------
@@ -68,7 +73,6 @@ def frankot(
         raise ValueError(msg)
     y, x = check_shapes(gx, gy)
     y2, x2 = 2 * y if pad else y, 2 * x if pad else x
-    s = (y2, x2)
 
     if pad == "antisym":
         gy, gx = antisym(gy=gy, gx=gx)
@@ -85,11 +89,12 @@ def frankot(
     fy = xp.astype(xp.fft.fftfreq(y2)[:, None], dtype, copy=False)
 
     if use_rfft:
-        gx_fft = fft2(gx, s=s, workers=workers, use_rfft=use_rfft)
-        gy_fft = fft2(gy, s=s, workers=workers, use_rfft=use_rfft)
-    else:  # !!! use_rfft=None for Numba
-        gx_fft = fft2(gx, s=s, workers=workers, use_rfft=None)
-        gy_fft = fft2(gy, s=s, workers=workers, use_rfft=None)
+        s = (y2, x2)
+        gx_fft = rfft_2d(gx, s=s, workers=workers)
+        gy_fft = rfft_2d(gy, s=s, workers=workers)
+    else:
+        gx_fft = fft_2d(gx, workers=workers)
+        gy_fft = fft_2d(gy, workers=workers)
 
     # !!! Cast scalars to the same dtype as the result. Necessary for Numba.
     two_j = cast_scalar(2j, xp.result_type(gx_fft, gy_fft))
@@ -102,6 +107,8 @@ def frankot(
     f_den = two_j * pi * (fx * fx + fy * fy)
 
     f_den = setitem(f_den, (..., 0, 0), one)  # avoid division by zero warning
-    f_phase = idiv(f_num, (...,), f_den)  # f_num is f_phase
-    f_phase = setitem(f_phase, (..., 0, 0), zero)
-    return xp.real(ifft2(f_phase, s=s, workers=workers, use_rfft=use_rfft)[..., :y, :x])
+    frac = idiv(f_num, (...,), f_den)  # f_num is frac
+    frac = setitem(frac, (..., 0, 0), zero)
+    if use_rfft:
+        return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]
+    return xp.real(ifft_2d(frac, workers=workers)[..., :y, :x])

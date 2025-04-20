@@ -9,10 +9,15 @@ from __future__ import annotations
 __all__ = ("kottler",)
 
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
-from mbipy.src.normal_integration.fourier.utils import fft2, ifft2
-from mbipy.src.normal_integration.padding import antisym
+from mbipy.src.normal_integration.fourier.padding import antisym
+from mbipy.src.normal_integration.fourier.utils import (
+    fft_2d,
+    ifft_2d,
+    irfft_2d,
+    rfft_2d,
+)
 from mbipy.src.normal_integration.utils import check_shapes
 from mbipy.src.utils import array_namespace, cast_scalar, idiv, setitem
 
@@ -24,9 +29,9 @@ if TYPE_CHECKING:
 def kottler(
     gy: NDArray[floating],
     gx: NDArray[floating],
-    pad: str | None = None,
+    pad: Literal["antisym"] | None = None,
     workers: int | None = None,
-    use_rfft: bool = True,
+    use_rfft: bool | None = None,
 ) -> NDArray[floating]:
     """Perform normal integration using the method of Kottler et al.
 
@@ -40,7 +45,7 @@ def kottler(
         Vertical gradient(s).
     gx : (..., M, N) NDArray[floating]
         Horizontal gradient(s).
-    pad : str | None, optional
+    pad : Literal["antisym"] | None, optional
         Type of padding to apply: "antisym" | None , by default None
     workers : int | None, optional
         Passed to scipy.fft fftn & ifftn, by default None
@@ -68,7 +73,6 @@ def kottler(
         raise ValueError(msg)
     y, x = check_shapes(gx, gy)
     y2, x2 = 2 * y if pad else y, 2 * x if pad else x
-    s = (y2, x2)
 
     if pad == "antisym":
         gy, gx = antisym(gy=gy, gx=gx)
@@ -90,15 +94,18 @@ def kottler(
         fx = xp.astype(xp.fft.fftfreq(x2), dtype, copy=False)
     fy = xp.astype(xp.fft.fftfreq(y2)[:, None], dtype, copy=False)
     if use_rfft:
-        gxfft = fft2(gx, s=s, workers=workers, use_rfft=use_rfft)
-        gyfft = fft2(gy, s=s, workers=workers, use_rfft=use_rfft)
+        s = (y2, x2)
+        gxfft = rfft_2d(gx, s=s, workers=workers)
+        gyfft = rfft_2d(gy, s=s, workers=workers)
         f_num = gxfft + one_j * gyfft
     else:
-        f_num = fft2(gx + one_j * gy, s=s, workers=workers, use_rfft=None)
+        f_num = fft_2d(gx + one_j * gy, workers=workers)
     f_den = one_j * two * xp.pi * (fx + one_j * fy)
 
     f_den = setitem(f_den, (..., 0, 0), one)  # avoid division by zero warning
-    f_phase = idiv(f_num, (...,), f_den)  # f_num is f_phase
-    f_phase = setitem(f_phase, (..., 0, 0), zero)
+    frac = idiv(f_num, (...,), f_den)  # f_num is frac
+    frac = setitem(frac, (..., 0, 0), zero)
 
-    return xp.real(ifft2(f_phase, s=s, workers=workers, use_rfft=use_rfft)[..., :y, :x])
+    if use_rfft:
+        return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]
+    return xp.real(ifft_2d(frac, workers=workers)[..., :y, :x])

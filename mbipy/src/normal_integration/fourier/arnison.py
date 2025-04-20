@@ -9,10 +9,15 @@ from __future__ import annotations
 
 __all__ = ("arnison",)
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
-from mbipy.src.normal_integration.fourier.utils import fft2, ifft2
-from mbipy.src.normal_integration.padding import antisym
+from mbipy.src.normal_integration.fourier.padding import antisym
+from mbipy.src.normal_integration.fourier.utils import (
+    fft_2d,
+    ifft_2d,
+    irfft_2d,
+    rfft_2d,
+)
 from mbipy.src.normal_integration.utils import check_shapes
 from mbipy.src.utils import array_namespace, cast_scalar, idiv, imul, setitem
 
@@ -24,9 +29,9 @@ if TYPE_CHECKING:
 def arnison(
     gy: NDArray[floating],
     gx: NDArray[floating],
-    pad: str | None = None,
+    pad: Literal["antisym"] | None = None,
     workers: int | None = None,
-    use_rfft: bool = True,
+    use_rfft: bool | None = None,
 ) -> NDArray[floating]:
     """Perform normal integration using the method of Arnison et al.
 
@@ -40,12 +45,12 @@ def arnison(
         Vertical gradient(s).
     gx : (..., M, N) NDArray[floating]
         Horizontal gradient(s).
-    pad : str | None, optional
+    pad : Literal["antisym"] | None, optional
         Type of padding to apply: "antisym" | None, by default None
     workers : int | None, optional
-        Passed to scipy.fft fft2, ifft2, by default None
-    use_rfft : bool, optional
-        Use a rfftn instead of fftn, by default True
+        Passed to scipy.fft fft2 & ifft2, by default None
+    use_rfft : bool | None, optional
+        Use a rfftn instead of fftn, by default None
 
 
     Returns
@@ -68,7 +73,6 @@ def arnison(
         raise ValueError(msg)
     y, x = check_shapes(gx, gy)
     y2, x2 = 2 * y if pad else y, 2 * x if pad else x
-    s = (y2, x2)
 
     if pad == "antisym":
         gy, gx = antisym(gy=gy, gx=gx)
@@ -98,15 +102,17 @@ def arnison(
     sinfy = xp.sin(fy)
 
     if use_rfft:
-        gxfft2 = fft2(gx, s=s, workers=workers, use_rfft=use_rfft)
-        gyfft2 = fft2(gy, s=s, workers=workers, use_rfft=use_rfft)
+        s = (y2, x2)
+        gxfft2 = rfft_2d(gx, s=s, workers=workers)
+        gyfft2 = rfft_2d(gy, s=s, workers=workers)
         f_num = gxfft2 + one_j * gyfft2
     else:
-        # !!! Pass use_rfft=None for Numba to avoid type errors in compilation
-        f_num = fft2(gx + one_j * gy, s=s, workers=workers, use_rfft=None)
+        f_num = fft_2d(gx + one_j * gy, workers=workers)
     f_den = two_j * (sinfx + one_j * sinfy[:, None])
 
     f_den = setitem(f_den, (..., 0, 0), one)  # avoid division by zero warning
     frac = idiv(f_num, (...,), f_den)
     frac = setitem(frac, (..., 0, 0), zero)
-    return xp.real(ifft2(frac, s=s, workers=workers, use_rfft=use_rfft)[..., :y, :x])
+    if use_rfft:
+        return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]
+    return xp.real(ifft_2d(frac, workers=workers)[..., :y, :x])
