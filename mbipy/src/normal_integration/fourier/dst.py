@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 from numpy import broadcast_shapes
 
-from mbipy.src.normal_integration.fourier.utils import dst2, idst2
+from mbipy.src.normal_integration.fourier.utils import dst1_2d, idst1_2d
 from mbipy.src.normal_integration.utils import check_shapes
 from mbipy.src.utils import array_namespace, cast_scalar, isub, setitem
 
@@ -110,7 +110,7 @@ def dst_poisson(
         # f[..., -2, -2] -= ub[..., -2, -1] + ub[..., -1, -2]
         # f[..., -2, 1] -= ub[..., -2, 0] + ub[..., -1, 1]
 
-    fsin = dst2(f[..., 1:-1, 1:-1], type=1, workers=workers)
+    fsin = dst1_2d(f[..., 1:-1, 1:-1], workers=workers)
 
     # dtype not supported in numba
     x = xp.astype(xp.linspace(0.0, xp.pi / 2.0, sx), dtype, copy=False)[1:-1]
@@ -126,7 +126,7 @@ def dst_poisson(
         z = setitem(z, (...,), ub)  # z[:] = ub
 
     s1_1 = slice(1, -1)
-    return setitem(z, (..., s1_1, s1_1), idst2(z_bar, type=1, workers=workers))
+    return setitem(z, (..., s1_1, s1_1), idst1_2d(z_bar, workers=workers))
     # Equivalent to:
     # z[..., 1:-1, 1:-1] = idst2(z_bar, type=1, workers=workers)
     # return z

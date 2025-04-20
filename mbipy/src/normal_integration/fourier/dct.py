@@ -12,7 +12,7 @@ __all__ = ("dct_poisson",)
 
 from typing import TYPE_CHECKING
 
-from mbipy.src.normal_integration.fourier.utils import dct2, idct2
+from mbipy.src.normal_integration.fourier.utils import dct2_2d, idct2_2d
 from mbipy.src.normal_integration.utils import check_shapes
 from mbipy.src.utils import array_namespace, cast_scalar, isub, setitem
 
@@ -104,7 +104,7 @@ def dct_poisson(
     # f[..., -1, 0] -= gy[..., -1, 0] - gx[..., -1, 0]
     # f[..., 0, 0] -= -gy[..., 0, -1] + gx[..., 0, -1]
 
-    fcos = dct2(f, workers=workers)
+    fcos = dct2_2d(f, workers=workers)
 
     # dtype not supported in numba
     x = xp.astype(xp.linspace(0, xp.pi / 2, sx), dtype, copy=False)
@@ -117,4 +117,4 @@ def dct_poisson(
     denom = setitem(denom, (0, 0), one)
     z_bar_bar = -fcos / denom
 
-    return idct2(z_bar_bar, workers=workers)
+    return idct2_2d(z_bar_bar, workers=workers)
