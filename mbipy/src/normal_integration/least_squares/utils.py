@@ -28,30 +28,6 @@ if TYPE_CHECKING:  # pragma: no cover
         from scipy.sparse import spmatrix
 
 
-def add_out2d(x1: NDArray, x2: NDArray, out: NDArray) -> NDArray:
-    xp = array_namespace(x1, x2, out)
-    try:
-        xp.add(x1, x2, out=out)
-    except TypeError:
-        if is_jax_namespace(xp):
-            out = out.at[:, :].set(xp.add(x1, x2))
-        else:
-            out[:, :] = xp.add(x1, x2)
-    return out
-
-
-def mul_out2d(x1: NDArray, x2: NDArray, out: NDArray) -> NDArray:
-    xp = array_namespace(x1, x2, out)
-    try:
-        xp.multiply(x1, x2, out=out)
-    except TypeError:
-        if is_jax_namespace(xp):
-            out = out.at[:, :].set(xp.multiply(x1, x2))
-        else:
-            out[:, :] = xp.multiply(x1, x2)
-    return out
-
-
 def csr_matrix(
     data: NDArray[floating],
     rows: NDArray[integer],
