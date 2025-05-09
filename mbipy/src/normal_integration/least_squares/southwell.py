@@ -16,22 +16,21 @@ from numpy import broadcast_shapes
 
 from mbipy.src.normal_integration.least_squares.utils import (
     BaseSparseNormalIntegration,
-    add_out2d,
     csr_matrix,
     factorized,
 )
-from mbipy.src.utils import array_namespace
+from mbipy.src.utils import array_namespace, get_dtypes
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from types import ModuleType
     from typing import Callable
 
     from numpy import floating
     from numpy.typing import DTypeLike, NDArray
 
-    from mbipy.src.config import __have_scipy__
+    from mbipy.src.config import _have_scipy
 
-    if __have_scipy__:
+    if _have_scipy:
         from scipy.sparse import spmatrix
 
 
@@ -53,17 +52,17 @@ def _southwell_vec(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floa
     """
     xp = array_namespace(gy, gx)
     shape = broadcast_shapes(gy.shape, gx.shape)
-    result_type = xp.result_type(gy.dtype, gx.dtype)
+    dtype, _ = get_dtypes(gy, gx)
     i, j = shape
     i_1 = i - 1
     j_1 = j - 1
     ij_1 = i * j_1
 
-    out = xp.empty(2 * i * j - i - j, dtype=result_type)
-    # 0.5 * (gx[:, 1:] + gx[:, :-1])
-    add_out2d(gx[:, 1:], gx[:, :-1], out=xp.reshape(out[:ij_1], (i, j_1), copy=False))
-    # 0.5 * (gy[:-1, :] + gy[1:, :])
-    add_out2d(gy[:-1, :], gy[1:, :], out=xp.reshape(out[ij_1:], (i_1, j), copy=False))
+    out = xp.empty(2 * i * j - i - j, dtype=dtype)
+    # Equivalent to: 0.5 * (gx[:, 1:] + gx[:, :-1])
+    xp.add(gx[:, 1:], gx[:, :-1], out=xp.reshape(out[:ij_1], (i, j_1), copy=False))
+    # Equivalent to: 0.5 * (gy[:-1, :] + gy[1:, :])
+    xp.add(gy[:-1, :], gy[1:, :], out=xp.reshape(out[ij_1:], (i_1, j), copy=False))
     out /= 2.0
     return out
 

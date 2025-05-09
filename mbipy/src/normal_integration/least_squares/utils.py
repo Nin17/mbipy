@@ -14,7 +14,7 @@ from array_api_compat import (
 )
 from numpy import broadcast_shapes
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
 
     from types import ModuleType
     from typing import Callable
@@ -22,9 +22,9 @@ if TYPE_CHECKING:
     from numpy import floating, integer
     from numpy.typing import DTypeLike, NDArray
 
-    from mbipy.src.config import __have_scipy__
+    from mbipy.src.config import _have_scipy
 
-    if __have_scipy__:
+    if _have_scipy:
         from scipy.sparse import spmatrix
 
 
