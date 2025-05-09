@@ -1,6 +1,18 @@
-"""_summary_"""
+"""Normal integration."""
 
-__all__ = ("arnison", "dct_poisson", "dst_poisson", "frankot", "kottler")
+from __future__ import annotations
+
+__all__ = (
+    "Li",
+    "Southwell",
+    "arnison",
+    "dct_poisson",
+    "dst_poisson",
+    "frankot",
+    "kottler",
+    "li",
+    "southwell",
+)
 
 from .fourier import arnison, dct_poisson, dst_poisson, frankot, kottler
-from .least_squares import *  # TODO(nin17): import explicitly
+from .least_squares import Li, Southwell, li, southwell
