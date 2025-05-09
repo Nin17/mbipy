@@ -53,7 +53,7 @@ def frankot(
         Vertical gradient(s).
     gx : (..., M, N) NDArray[floating]
         Horizontal gradient(s).
-    pad : Literal["antisym"] | None, optional
+    pad : Literal["antisymmetric"] | None, optional
         Type of padding to apply: "antisymmetric" | None , by default None
     workers : int | None, optional
         Passed to scipy.fft fftn & ifftn, by default None
@@ -70,7 +70,7 @@ def frankot(
     ValueError
         If the input arrays are not real-valued.
     ValueError
-        If the pad argument is not None or "antisym".
+        If the pad argument is not None or "antisymmetric".
 
     """
     xp = array_namespace(gy, gx)

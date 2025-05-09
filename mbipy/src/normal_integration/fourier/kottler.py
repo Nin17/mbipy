@@ -36,7 +36,7 @@ if TYPE_CHECKING:  # pragma: no cover
 def kottler(
     gy: NDArray[floating],
     gx: NDArray[floating],
-    pad: Literal["antisym"] | None = None,
+    pad: Literal["antisymmetric"] | None = None,
     workers: int | None = None,
     use_rfft: bool | None = None,
 ) -> NDArray[floating]:
@@ -69,7 +69,7 @@ def kottler(
     ValueError
         If the input arrays are not real-valued.
     ValueError
-        If the pad argument is not None or "antisym".
+        If the pad argument is not None or "antisymmetric".
 
     """
     xp = array_namespace(gy, gx)
