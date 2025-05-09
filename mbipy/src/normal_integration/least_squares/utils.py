@@ -22,9 +22,9 @@ if TYPE_CHECKING:  # pragma: no cover
     from numpy import floating, integer
     from numpy.typing import DTypeLike, NDArray
 
-    from mbipy.src.config import _have_scipy
+    from mbipy.src.config import config as cfg
 
-    if _have_scipy:
+    if cfg.have_scipy:
         from scipy.sparse import spmatrix
 
 

@@ -14,7 +14,7 @@ from array_api_compat import (
 )
 from numpy.lib.array_utils import normalize_axis_index
 
-from mbipy.src.config import _have_scipy
+from mbipy.src.config import config as cfg
 from mbipy.src.utils import array_namespace, idiv
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -48,7 +48,7 @@ def rfft_2d(
     """
     axes = (-2, -1)
     xp = array_namespace(a)
-    if is_numpy_namespace(xp) and _have_scipy:
+    if is_numpy_namespace(xp) and cfg.have_scipy:
         fft = importlib.import_module("scipy.fft")
         return fft.rfft2(a, s=s, axes=axes, workers=workers)
     return xp.fft.rfftn(a, s=s, axes=axes)
@@ -77,7 +77,7 @@ def irfft_2d(
     """
     axes = (-2, -1)
     xp = array_namespace(a)
-    if is_numpy_namespace(xp) and _have_scipy:
+    if is_numpy_namespace(xp) and cfg.have_scipy:
         fft = importlib.import_module("scipy.fft")
         return fft.irfft2(a, s=s, axes=axes, workers=workers)
     return xp.fft.irfftn(a, s=s, axes=axes)
@@ -103,7 +103,7 @@ def fft_2d(
     """
     axes = (-2, -1)
     xp = array_namespace(a)
-    if is_numpy_namespace(xp) and _have_scipy:
+    if is_numpy_namespace(xp) and cfg.have_scipy:
         _fft = importlib.import_module("scipy.fft")
         return _fft.fft2(a, axes=axes, workers=workers)
     return xp.fft.fftn(a, axes=axes)
@@ -129,7 +129,7 @@ def ifft_2d(
     """
     axes = (-2, -1)
     xp = array_namespace(a)
-    if is_numpy_namespace(xp) and _have_scipy:
+    if is_numpy_namespace(xp) and cfg.have_scipy:
         fft = importlib.import_module("scipy.fft")
         return fft.ifft2(a, axes=axes, workers=workers)
     return xp.fft.ifftn(a, axes=axes)
@@ -162,7 +162,7 @@ def dct2_2d(x: NDArray[floating], workers: int | None = None) -> NDArray[floatin
     xp = array_namespace(x)
     kwargs = {"workers": workers, "axes": (-2, -1)}
     if is_numpy_namespace(xp):
-        if not _have_scipy:
+        if not cfg.have_scipy:
             msg = "Need SciPy for the DCT"
             raise ImportError(msg)
         dctn = importlib.import_module("scipy.fft").dctn
@@ -207,7 +207,7 @@ def idct2_2d(x: NDArray[floating], workers: int | None = None) -> NDArray[floati
     xp = array_namespace(x)
     kwargs = {"workers": workers, "axes": (-2, -1)}
     if is_numpy_namespace(xp):
-        if not _have_scipy:
+        if not cfg.have_scipy:
             msg = "Need SciPy for the IDCT"
             raise ImportError(msg)
         idctn = importlib.import_module("scipy.fft").idctn
@@ -333,7 +333,7 @@ def dst1_2d(
     axes = (-2, -1)
     xp = array_namespace(x)
     if is_numpy_namespace(xp):
-        if _have_scipy:
+        if cfg.have_scipy:
             spfft = importlib.import_module("scipy.fft")
             return spfft.dstn(x, type=1, axes=axes, workers=workers)
         msg = "x is a numpy array and scipy isn't installed - fallback to slow method."
@@ -364,7 +364,7 @@ def idst1_2d(
     axes = (-2, -1)
     xp = array_namespace(x)
     if is_numpy_namespace(xp):
-        if _have_scipy:
+        if cfg.have_scipy:
             spfft = importlib.import_module("scipy.fft")
             return spfft.idstn(x, type=1, axes=axes, workers=workers)
         msg = "x is a numpy array and scipy isn't installed - fallback to slow method."

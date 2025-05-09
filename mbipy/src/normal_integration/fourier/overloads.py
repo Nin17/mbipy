@@ -20,7 +20,7 @@ import numpy as np
 from numba import extending, types
 from numba.core import errors
 
-from mbipy.src.config import _have_scipy
+from mbipy.src.config import config as cfg
 from mbipy.src.normal_integration.fourier import (
     arnison,
     dct_poisson,
@@ -152,7 +152,7 @@ def _dct2_2d_overload(
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
-    if _have_scipy:
+    if cfg.have_scipy:
         from scipy import fft as sfft
 
         def impl(
@@ -173,7 +173,7 @@ def _idct2_2d_overload(
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
-    if _have_scipy:
+    if cfg.have_scipy:
         from scipy import fft as sfft
 
         def impl(
@@ -194,7 +194,7 @@ def _dst1_2d_overload(
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
-    if _have_scipy:
+    if cfg.have_scipy:
         from scipy import fft as sfft
 
         def impl(
@@ -215,7 +215,7 @@ def _idst1_2d_overload(
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
-    if _have_scipy:
+    if cfg.have_scipy:
         from scipy import fft as sfft
 
         def impl(
