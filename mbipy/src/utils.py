@@ -1,32 +1,45 @@
-import importlib
-from types import ModuleType
+"""_summary_"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import array_api_compat as compat
-from array_api_compat import is_jax_namespace
+from array_api_compat import (
+    is_cupy_namespace,
+    is_jax_namespace,
+    is_numpy_namespace,
+    is_torch_namespace,
+)
 
-from .config import __have_numba__
+if TYPE_CHECKING:  # pragma: no cover
+    from types import ModuleType
+
+    from numpy.typing import NDArray
+
+__all__ = (
+    "array_namespace",
+    "is_cupy_namespace",
+    "is_jax_namespace",
+    "is_numpy_namespace",
+    "is_torch_namespace",
+)
 
 
-def array_namespace(*arrays) -> ModuleType:  # noqa: ANN002
-    try:
-        xp = compat.array_namespace(*arrays)
-        if is_jax_namespace(xp):
-            return importlib.import_module("jax.numpy")
-        return xp
-    except TypeError:
-        # ??? why
-        try:
-            tnp = importlib.import_module("tensorflow.experimental.numpy")
-            tf = importlib.import_module("tensorflow")
+def array_namespace(*arrays: NDArray) -> ModuleType:
+    """Get the array namespace of the arrays.
 
-            if all(isinstance(i, tf.Tensor) for i in arrays):
-                xp = tnp
-                xp.experimental_enable_numpy_behavior()
-                return xp
-        except ImportError:
-            ...
+    Parameters
+    ----------
+    arrays : NDArray
+        The arrays to check.
 
-        raise
+    Returns
+    -------
+    ModuleType
+        The array namespace of the arrays.
+    """
+    return compat.array_namespace(*arrays, api_version="2024.12")
 
 
 try:
@@ -78,79 +91,30 @@ def idiv(a, i, v):
     return a
 
 
-def imul(a, i, v):
-    xp = array_namespace(a)
+def imul(array, indices, values):
+    xp = array_namespace(array)
     if is_jax_namespace(xp):
-        a = a.at[i].multiply(v)
+        array = array.at[indices].multiply(values)
     else:
-        a[i] *= v
-    return a
+        array[indices] *= values
+    return array
 
 
-def cast_scalar(x, dtype):
+def cast_scalar(scalar, dtype):
     # !!! Dummy function - only needed for it's numba overload
-    return x
+    return scalar
 
 
-if __have_numba__:
-    import numba as nb
-    import numpy as np
-    from numba import types
-    from numba.core import errors
+def get_dtypes(*arrays):
+    xp = array_namespace(*arrays)
+    dtype = xp.result_type(*arrays)
+    if not xp.isdtype(dtype, "real floating"):
+        msg = "Input arrays must be real-valued."
+        raise ValueError(msg)
+    return dtype, xp.result_type(dtype, xp.complex64)
 
-    @nb.extending.overload(setitem)
-    def overload_setitem(a, i, v):
-        def impl(a, i, v):
-            a[i] = v
-            return a
 
-        return impl
-
-    @nb.extending.overload(isub)
-    def overload_isub(a, i, v):
-        def impl(a, i, v):
-            a[i] -= v
-            return a
-
-        return impl
-
-    @nb.extending.overload(idiv)
-    def overload_idiv(a, i, v):
-        def impl(a, i, v):
-            a[i] /= v
-            return a
-
-        return impl
-
-    @nb.extending.overload(imul)
-    def overload_imul(a, i, v):
-        def impl(a, i, v):
-            a[i] *= v
-            return a
-
-        return impl
-
-    @nb.extending.overload(array_namespace)
-    def overload_array_namespace(*arrays):
-        if not all(isinstance(i, types.Array) for i in arrays):
-            msg = "All arguments must be of type Array."
-            raise errors.NumbaTypeError(msg)
-
-        def impl(*arrays):
-            return np
-
-        return impl
-
-    @nb.extending.overload(cast_scalar)
-    def overload_cast_scalar(scalar, dtype):
-        if not isinstance(scalar, types.Number):
-            msg = "Scalar must be of type Number."
-            raise errors.NumbaTypeError(msg)
-        if not isinstance(dtype, types.NumberClass):
-            msg = "Dtype must be of type Dtype."
-            raise errors.NumbaTypeError(msg)
-
-        def impl(scalar, dtype):
-            return dtype(scalar)
-
-        return impl
+def astype(array, dtype, copy=False):
+    # !!! To avoid numba overload of numpy function
+    xp = array_namespace(array)
+    return xp.astype(array, dtype, copy=copy)
