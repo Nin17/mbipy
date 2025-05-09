@@ -14,9 +14,17 @@ from typing import TYPE_CHECKING
 
 from mbipy.src.normal_integration.fourier.utils import dct2_2d, idct2_2d
 from mbipy.src.normal_integration.utils import check_shapes
-from mbipy.src.utils import array_namespace, cast_scalar, isub, setitem
+from mbipy.src.utils import (
+    array_namespace,
+    astype,
+    get_dtypes,
+    idiv,
+    imul,
+    isub,
+    setitem,
+)
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from numpy import floating
     from numpy.typing import NDArray
 
@@ -49,17 +57,8 @@ def dct_poisson(
 
     """
     xp = array_namespace(gy, gx)
-    dtype = xp.result_type(gy, gx)
-    if not xp.isdtype(dtype, "real floating"):
-        msg = "Input arrays must be real-valued."
-        raise ValueError(msg)
-
+    dtype, _ = get_dtypes(gy, gx)
     sy, sx = check_shapes(gx, gy)
-
-    # !!! Cast scalars to the same dtype as the result. Necessary for Numba.
-    half = cast_scalar(0.5, dtype)
-    one = cast_scalar(1.0, dtype)
-    four = cast_scalar(4.0, dtype)
 
     arange = xp.arange(max(sy, sx), dtype=xp.int64)
 
@@ -73,48 +72,53 @@ def dct_poisson(
     indices_x = setitem(indices_x, -1, -1)
     indices_x = setitem(indices_x, slice(1, -1), arange[:sx])
 
-    # Divergence of (gy, gx) using central differences
-    qy = half * (gy[..., indices_y[2:], :] - gy[..., indices_y[:-2], :])
-    px = half * (gx[..., :, indices_x[2:]] - gx[..., :, indices_x[:-2]])
+    # Divergence (∇) of (gy, gx) using central differences
+    # ??? do inplace instead
+    qy = gy[..., indices_y[2:], :] - gy[..., indices_y[:-2], :]
+    px = gx[..., :, indices_x[2:]] - gx[..., :, indices_x[:-2]]
 
-    # Div(gy, gx)
+    # ∇(gy, gx)
     f = qy + px
+    f = idiv(f, ..., 2.0)
 
     # Modification near the boundaries to enforce the non-homogeneous Neumann
     # BC (Eq. 53 in [1])
     s1_1 = slice(1, -1)
+    # Equivalent to: f[..., 0, 1:-1] -= gy[..., 0, 1:-1]
     f = isub(f, (..., 0, s1_1), gy[..., 0, s1_1])
+    # Equivalent to: f[..., -1, 1:-1] -= gy[..., -1, 1:-1]
     f = isub(f, (..., -1, s1_1), gy[..., -1, s1_1])
+    # Equivalent to: f[..., 1:-1, 0] -= gx[..., 1:-1, 0]
     f = isub(f, (..., s1_1, 0), gx[..., s1_1, 0])
+    # Equivalent to: f[..., 1:-1, -1] -= gx[..., 1:-1, -1]
     f = isub(f, (..., s1_1, -1), gx[..., s1_1, -1])
-    # Equivalent to:
-    # f[..., 0, 1:-1] -= gy[..., 0, 1:-1]
-    # f[..., -1, 1:-1] -= gy[..., -1, 1:-1]
-    # f[..., 1:-1, 0] -= gx[..., 1:-1, 0]
-    # f[..., 1:-1, -1] -= gx[..., 1:-1, -1]
 
     # Modification near the corners (Eq. 54 in [1])
+    # Equivalent to: f[..., 0, -1] -= -gy[..., 0, 0] - gx[..., 0, 0]
     f = isub(f, (..., 0, -1), -gy[..., 0, 0] - gx[..., 0, 0])
+    # Equivalent to: f[..., -1, -1] -= gy[..., -1, -1] + gx[..., -1, -1]
     f = isub(f, (..., -1, -1), gy[..., -1, -1] + gx[..., -1, -1])
+    # Equivalent to: f[..., -1, 0] -= gy[..., -1, 0] - gx[..., -1, 0]
     f = isub(f, (..., -1, 0), gy[..., -1, 0] - gx[..., -1, 0])
+    # Equivalent to: f[..., 0, 0] -= -gy[..., 0, -1] + gx[..., 0, -1]
     f = isub(f, (..., 0, 0), -gy[..., 0, -1] + gx[..., 0, -1])
-    # Equivalent to:
-    # f[..., 0, -1] -= -gy[..., 0, 0] - gx[..., 0, 0]
-    # f[..., -1, -1] -= gy[..., -1, -1] + gx[..., -1, -1]
-    # f[..., -1, 0] -= gy[..., -1, 0] - gx[..., -1, 0]
-    # f[..., 0, 0] -= -gy[..., 0, -1] + gx[..., 0, -1]
 
     fcos = dct2_2d(f, workers=workers)
 
     # dtype not supported in numba
-    x = xp.astype(xp.linspace(0, xp.pi / 2, sx), dtype, copy=False)
-    y = xp.astype(xp.linspace(0, xp.pi / 2, sy), dtype, copy=False)[:, None]
+    x = astype(xp.linspace(0.0, xp.pi / 2.0, sx), dtype)
+    y = astype(xp.linspace(0.0, xp.pi / 2.0, sy), dtype)[:, None]
     # Faster to do * before + : x.size + y.size vs x.size * y.size
+    # ??? do inplace instead
     sinx = xp.sin(x)
     siny = xp.sin(y)
+    sinx2 = sinx * sinx
+    siny2 = siny * siny
+    fsinx = imul(sinx2, ..., 4.0)
+    fsiny = imul(siny2, ..., 4.0)
 
-    denom = (four * sinx * sinx) + (four * siny * siny)
-    denom = setitem(denom, (0, 0), one)
-    z_bar_bar = -fcos / denom
+    denom = fsinx + fsiny
+    denom = setitem(denom, (0, 0), 1.0)
+    z_bar_bar = -fcos / denom  # ??? do inplace instead
 
     return idct2_2d(z_bar_bar, workers=workers)
