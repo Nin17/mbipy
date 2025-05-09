@@ -17,9 +17,17 @@ from numpy import broadcast_shapes
 
 from mbipy.src.normal_integration.fourier.utils import dst1_2d, idst1_2d
 from mbipy.src.normal_integration.utils import check_shapes
-from mbipy.src.utils import array_namespace, cast_scalar, isub, setitem
+from mbipy.src.utils import (
+    array_namespace,
+    astype,
+    get_dtypes,
+    idiv,
+    imul,
+    isub,
+    setitem,
+)
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from numpy import floating
     from numpy.typing import NDArray
 
@@ -54,21 +62,15 @@ def dst_poisson(
         If the input arrays are not real-valued.
 
     """
+    # !!! Slower algorithm if not using SciPy, Numba or pyvkfft: doubles the array size
     xp = array_namespace(gx, gy)
-    dtype = xp.result_type(gy, gx)
-    if not xp.isdtype(dtype, "real floating"):
-        msg = "Input arrays must be real-valued."
-        raise ValueError(msg)
-    # !!! Slower algorithm if not using SciPy or Numba: doubles the array size
+    dtype, _ = get_dtypes(gy, gx)
     sy, sx = check_shapes(gx, gy)
+
     if ub is not None:
         result_shape = broadcast_shapes(gy.shape, gx.shape, ub.shape)
     else:
         result_shape = broadcast_shapes(gy.shape, gx.shape)
-
-    # !!! Cast scalars to the same dtype as the result. Necessary for Numba.
-    half = cast_scalar(0.5, dtype)
-    four = cast_scalar(4.0, dtype)
 
     arange = xp.arange(max(sy, sx), dtype=xp.int64)
 
@@ -82,51 +84,58 @@ def dst_poisson(
     indices_x = setitem(indices_x, -1, -1)
     indices_x = setitem(indices_x, slice(1, -1), arange[:sx])
 
-    qy = half * (gy[..., indices_y[2:], :] - gy[..., indices_y[:-2], :])
-    px = half * (gx[..., :, indices_x[2:]] - gx[..., :, indices_x[:-2]])
+    # Divergence (∇) of (gy, gx) using central differences
+    # ??? do inplace instead
+    qy = gy[..., indices_y[2:], :] - gy[..., indices_y[:-2], :]
+    px = gx[..., :, indices_x[2:]] - gx[..., :, indices_x[:-2]]
 
+    # ∇(gy, gx)
     f = qy + px
+    f = idiv(f, ..., 2.0)
 
     if ub is not None:
         # Modification near the boundaries (Eq. 46 in [1])
         s2_2 = slice(2, -2)
+        # Equivalent to: f[..., 1, 2:-2] -= ub[..., 0, 2:-2]
         f = isub(f, (..., 1, s2_2), ub[..., 0, s2_2])
+        # Equivalent to: f[..., -2, 2:-2] -= ub[..., -1, 2:-2]
         f = isub(f, (..., -2, s2_2), ub[..., -1, s2_2])
+        # Equivalent to: f[..., 2:-2, 1] -= ub[..., 2:-2, 0]
         f = isub(f, (..., s2_2, 1), ub[..., s2_2, 0])
+        # Equivalent to: f[..., 2:-2, -2] -= ub[..., 2:-2, -1]
         f = isub(f, (..., s2_2, -2), ub[..., s2_2, -1])
-        # Equivalent to:
-        # f[..., 1, 2:-2] -= ub[..., 0, 2:-2]
-        # f[..., -2, 2:-2] -= ub[..., -1, 2:-2]
-        # f[..., 2:-2, 1] -= ub[..., 2:-2, 0]
-        # f[..., 2:-2, -2] -= ub[..., 2:-2, -1]
 
         # # Modification near the corners (Eq. 47 in [1])
+        # Equivalent to: f[..., 1, 1] -= ub[..., 1, 0] + ub[..., 0, 1]
         f = isub(f, (..., 1, 1), ub[..., 1, 0] + ub[..., 0, 1])
+        # Equivalent to: f[..., 1, -2] -= ub[..., 1, -1] + ub[..., 0, -2]
         f = isub(f, (..., 1, -2), ub[..., 1, -1] + ub[..., 0, -2])
+        # Equivalent to: f[..., -2, -2] -= ub[..., -2, -1] + ub[..., -1, -2]
         f = isub(f, (..., -2, -2), ub[..., -2, -1] + ub[..., -1, -2])
+        # Equivalent to: f[..., -2, 1] -= ub[..., -2, 0] + ub[..., -1, 1]
         f = isub(f, (..., -2, 1), ub[..., -2, 0] + ub[..., -1, 1])
-        # f[..., 1, 1] -= ub[..., 1, 0] + ub[..., 0, 1]
-        # f[..., 1, -2] -= ub[..., 1, -1] + ub[..., 0, -2]
-        # f[..., -2, -2] -= ub[..., -2, -1] + ub[..., -1, -2]
-        # f[..., -2, 1] -= ub[..., -2, 0] + ub[..., -1, 1]
 
     fsin = dst1_2d(f[..., 1:-1, 1:-1], workers=workers)
 
     # dtype not supported in numba
-    x = xp.astype(xp.linspace(0.0, xp.pi / 2.0, sx), dtype, copy=False)[1:-1]
-    y = xp.astype(xp.linspace(0.0, xp.pi / 2.0, sy), dtype, copy=False)[1:-1][:, None]
+    x = astype(xp.linspace(0.0, xp.pi / 2.0, sx), dtype)[1:-1]
+    y = astype(xp.linspace(0.0, xp.pi / 2.0, sy), dtype)[1:-1][:, None]
     # Faster to do * before + : x.size + y.size vs x.size * y.size
+    # ??? do inplace instead
     sinx = xp.sin(x)
     siny = xp.sin(y)
+    sinx2 = sinx * sinx
+    siny2 = siny * siny
+    sinx2 = imul(sinx2, ..., -4.0)
+    siny2 = imul(siny2, ..., -4.0)
 
-    denom = (-four * sinx * sinx) + (-four * siny * siny)
-    z_bar = fsin / denom
+    denom = sinx2 + siny2
+
+    z_bar = fsin / denom  # ??? do inplace instead
     z = xp.zeros(result_shape, dtype=fsin.dtype)
     if ub is not None:
         z = setitem(z, (...,), ub)  # z[:] = ub
 
     s1_1 = slice(1, -1)
+    # Equivalent to: z[..., 1:-1, 1:-1] = idst1_2d(z_bar, workers=workers)
     return setitem(z, (..., s1_1, s1_1), idst1_2d(z_bar, workers=workers))
-    # Equivalent to:
-    # z[..., 1:-1, 1:-1] = idst2(z_bar, type=1, workers=workers)
-    # return z
