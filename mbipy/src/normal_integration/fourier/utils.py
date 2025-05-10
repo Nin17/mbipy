@@ -22,14 +22,15 @@ if TYPE_CHECKING:  # pragma: no cover
     from numpy.typing import NDArray
 
 
-
-def _check_s(s):
-    if not len(s) == 2:
+def _check_s(s: tuple[int, int]) -> None:
+    slen = 2
+    if len(s) != slen:
         msg = "s must be a tuple of length 2"
         raise ValueError(msg)
     if not all(isinstance(i, int) for i in s):
         msg = "s must be a tuple of integers"
         raise ValueError(msg)
+
 
 def _contiguous(x: NDArray) -> NDArray:
     xp = array_namespace(x)
@@ -180,7 +181,7 @@ def ifft_2d(
         if not xp.isdtype(x, "complex floating"):
             msg = "x must be a complex-valued array"
             raise ValueError(msg)
-            
+
         return fft.ifftn(x, ndim=2)
     return xp.fft.ifftn(x, axes=axes)
 
@@ -217,22 +218,21 @@ def dct2_2d(x: NDArray[floating], workers: int | None = None) -> NDArray[floatin
             raise ImportError(msg)
         fft = importlib.import_module("scipy.fft")
         return fft.dctn(x, type=2, axes=axes, workers=workers)
-    elif is_cupy_namespace(xp):
+    if is_cupy_namespace(xp):
         if cfg.use_pyvkfft:
             fft = importlib.import_module("pyvkfft.fft")
             x = _contiguous(x)
             return fft.dctn(x, ndim=2, dct_type=2)
         fft = importlib.import_module("cupyx.scipy.fft")
         return fft.dctn(x, type=2, axes=axes)
-    elif is_jax_namespace(xp):
+    if is_jax_namespace(xp):
         fft = importlib.import_module("jax.scipy.fft")
         return fft.dctn(x, type=2, axes=axes)
-    elif is_torch_namespace(xp):
+    if is_torch_namespace(xp):
         dctn = importlib.import_module("torch_dct").dct_2d
         return dctn(x)
-    else:
-        msg = "dct is not implemented for this array namespace."
-        raise NotImplementedError(msg)
+    msg = "dct is not implemented for this array namespace."
+    raise NotImplementedError(msg)
 
 
 def idct2_2d(x: NDArray[floating], workers: int | None = None) -> NDArray[floating]:
@@ -266,22 +266,21 @@ def idct2_2d(x: NDArray[floating], workers: int | None = None) -> NDArray[floati
             raise ImportError(msg)
         fft = importlib.import_module("scipy.fft")
         return fft.idctn(x, type=2, axes=axes, workers=workers)
-    elif is_cupy_namespace(xp):
+    if is_cupy_namespace(xp):
         if cfg.use_pyvkfft:
             fft = importlib.import_module("pyvkfft.fft")
             x = _contiguous(x)
             return fft.idctn(x, ndim=2, dct_type=2)
         fft = importlib.import_module("cupyx.scipy.fft")
         return fft.idctn(x, type=2, axes=axes)
-    elif is_jax_namespace(xp):
+    if is_jax_namespace(xp):
         fft = importlib.import_module("jax.scipy.fft")
         return fft.idctn(x, type=2, axes=axes)
-    elif is_torch_namespace(xp):
+    if is_torch_namespace(xp):
         idctn = importlib.import_module("torch_dct").idct_2d
         return idctn(x)
-    else:
-        msg = "idct is not implemented for this array namespace"
-        raise NotImplementedError(msg)
+    msg = "idct is not implemented for this array namespace"
+    raise NotImplementedError(msg)
 
 
 def _dst1(x: NDArray[floating], axis: int = -1) -> NDArray[floating]:
