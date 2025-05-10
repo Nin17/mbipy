@@ -364,7 +364,7 @@ def _idst1_nd(
     for axis in axes:
         sizes.append(shape[axis] + 1)
         x = _dst1(x, axis=axis)  # / (2 * size)  # ??? do one division at the end
-    return idiv(x, (...,), (2 ** len(axes) * xp.prod(xp.asarray(sizes))))
+    return idiv(x, ..., (2 ** len(axes) * xp.prod(xp.asarray(sizes))))
 
 
 def dst1_2d(
