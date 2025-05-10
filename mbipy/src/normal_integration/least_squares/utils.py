@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 from array_api_compat import (
     array_namespace,
     is_cupy_namespace,
-    is_jax_namespace,
 )
 from numpy import broadcast_shapes
 
