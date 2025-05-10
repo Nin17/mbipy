@@ -23,9 +23,9 @@ from mbipy.src.normal_integration.utils import check_shapes
 from mbipy.src.utils import (
     array_namespace,
     astype,
-    cast_scalar,
     get_dtypes,
     idiv,
+    imul,
     setitem,
 )
 
@@ -97,16 +97,20 @@ def frankot(
         gx_fft = fft_2d(astype(gx, cdtype, copy=True), workers=workers)
         gy_fft = fft_2d(astype(gy, cdtype, copy=True), workers=workers)
 
-    # !!! Cast scalars to the same dtype as the result. Necessary for Numba.
-    two_j = cast_scalar(2j, cdtype)
-    pi = cast_scalar(xp.pi, dtype)
+    gx_fft = imul(gx_fft, ..., fx)
+    gy_fft = imul(gy_fft, ..., fy)
+    f_num = gx_fft + gy_fft
 
-    # ??? do inplace instead
-    f_num = fx * gx_fft + fy * gy_fft
-    f_den = two_j * pi * (fx * fx + fy * fy)
+    fx = imul(fx, ..., fx)
+    fy = imul(fy, ..., fy)
+    fx = astype(fx, cdtype)
+    fy = astype(fy, cdtype)
+    fx = imul(fx, ..., 2.0j * xp.pi)
+    fy = imul(fy, ..., 2.0j * xp.pi)
+    f_den = fx + fy
 
     f_den = setitem(f_den, (..., 0, 0), 1.0)  # avoid division by zero warning
-    frac = idiv(f_num, (...,), f_den)  # f_num is frac
+    frac = idiv(f_num, ..., f_den)  # f_num is frac
     frac = setitem(frac, (..., 0, 0), 0.0)
     if use_rfft:
         return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]

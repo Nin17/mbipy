@@ -22,7 +22,6 @@ from mbipy.src.normal_integration.utils import check_shapes
 from mbipy.src.utils import (
     array_namespace,
     astype,
-    cast_scalar,
     get_dtypes,
     idiv,
     imul,
@@ -88,29 +87,29 @@ def arnison(
 
     fx = astype(xp.fft.rfftfreq(x2) if use_rfft else xp.fft.fftfreq(x2), dtype)
     fy = astype(xp.fft.fftfreq(y2), dtype)
+    fx = imul(fx, ..., xp.pi)
+    fy = imul(fy, ..., xp.pi)
 
-    # !!! Cast scalars to the same dtype as the result. Necessary for Numba.
-    one_j = cast_scalar(1j, cdtype)
-    two_j = cast_scalar(2j, cdtype)
-
-    fx = imul(fx, slice(0, None), xp.pi)
-    fy = imul(fy, slice(0, None), xp.pi)
-
-    # ??? do inplace instead
-    sinfx = xp.sin(fx)
+    sinfx = astype(xp.sin(fx), cdtype)  # ??? do inplace
     sinfy = xp.sin(fy)[:, None]
+    sinfx = imul(sinfx, ..., 2.0j)
+    sinfy = imul(sinfy, ..., -2.0)
 
     if use_rfft:
         s = (y2, x2)
         gxfft2 = rfft_2d(gx, s=s, workers=workers)
         gyfft2 = rfft_2d(gy, s=s, workers=workers)
-        f_num = gxfft2 + one_j * gyfft2  # ??? do inplace instead
+        gyfft2 = imul(gyfft2, ..., 1.0j)
+        f_num = gxfft2 + gyfft2
     else:
-        f_num = fft_2d(gx + one_j * gy, workers=workers)  # ??? do inplace instead
-    f_den = two_j * (sinfx + one_j * sinfy)
+        gyc = astype(gy, cdtype, copy=True)
+        gyc = imul(gyc, ..., 1.0j)
+        operand = gx + gyc
+        f_num = fft_2d(operand, workers=workers)
 
+    f_den = sinfx + sinfy
     f_den = setitem(f_den, (..., 0, 0), 1.0)  # avoid division by zero warning
-    frac = idiv(f_num, (...,), f_den)
+    frac = idiv(f_num, ..., f_den)
     frac = setitem(frac, (..., 0, 0), 0.0)
     if use_rfft:
         return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]

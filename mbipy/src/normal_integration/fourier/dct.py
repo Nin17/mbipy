@@ -73,8 +73,7 @@ def dct_poisson(
     indices_x = setitem(indices_x, slice(1, -1), arange[:sx])
 
     # Divergence (∇) of (gy, gx) using central differences
-    # ??? do inplace instead
-    qy = gy[..., indices_y[2:], :] - gy[..., indices_y[:-2], :]
+    qy = gy[..., indices_y[2:], :] - gy[..., indices_y[:-2], :]  # ??? do inplace
     px = gx[..., :, indices_x[2:]] - gx[..., :, indices_x[:-2]]
 
     # ∇(gy, gx)
@@ -104,21 +103,21 @@ def dct_poisson(
     f = isub(f, (..., 0, 0), -gy[..., 0, -1] + gx[..., 0, -1])
 
     fcos = dct2_2d(f, workers=workers)
+    fcos = imul(fcos, ..., -1.0)
 
     # dtype not supported in numba
     x = astype(xp.linspace(0.0, xp.pi / 2.0, sx), dtype)
     y = astype(xp.linspace(0.0, xp.pi / 2.0, sy), dtype)[:, None]
-    # Faster to do * before + : x.size + y.size vs x.size * y.size
-    # ??? do inplace instead
-    sinx = xp.sin(x)
+    # Faster to do * before + : x.size + y.size vs x.size * y.size multiplications
+    sinx = xp.sin(x)  # ??? do inplace
     siny = xp.sin(y)
-    sinx2 = sinx * sinx
-    siny2 = siny * siny
-    fsinx = imul(sinx2, ..., 4.0)
-    fsiny = imul(siny2, ..., 4.0)
+    sinx = imul(sinx, ..., sinx)
+    siny = imul(siny, ..., siny)
+    fsinx = imul(sinx, ..., 4.0)
+    fsiny = imul(siny, ..., 4.0)
 
     denom = fsinx + fsiny
     denom = setitem(denom, (0, 0), 1.0)
-    z_bar_bar = -fcos / denom  # ??? do inplace instead
+    z_bar_bar = idiv(fcos, ..., denom)
 
     return idct2_2d(z_bar_bar, workers=workers)

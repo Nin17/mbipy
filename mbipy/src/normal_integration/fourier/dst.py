@@ -62,7 +62,8 @@ def dst_poisson(
         If the input arrays are not real-valued.
 
     """
-    # !!! Slower algorithm if not using SciPy, Numba or pyvkfft: doubles the array size
+    # !!! Slower algorithm if not using SciPy, rocket-fft or pyvkfft
+    # doubles the array size
     xp = array_namespace(gx, gy)
     dtype, _ = get_dtypes(gy, gx)
     sy, sx = check_shapes(gx, gy)
@@ -85,8 +86,7 @@ def dst_poisson(
     indices_x = setitem(indices_x, slice(1, -1), arange[:sx])
 
     # Divergence (∇) of (gy, gx) using central differences
-    # ??? do inplace instead
-    qy = gy[..., indices_y[2:], :] - gy[..., indices_y[:-2], :]
+    qy = gy[..., indices_y[2:], :] - gy[..., indices_y[:-2], :]  # ??? do inplace
     px = gx[..., :, indices_x[2:]] - gx[..., :, indices_x[:-2]]
 
     # ∇(gy, gx)
@@ -120,21 +120,19 @@ def dst_poisson(
     # dtype not supported in numba
     x = astype(xp.linspace(0.0, xp.pi / 2.0, sx), dtype)[1:-1]
     y = astype(xp.linspace(0.0, xp.pi / 2.0, sy), dtype)[1:-1][:, None]
-    # Faster to do * before + : x.size + y.size vs x.size * y.size
-    # ??? do inplace instead
-    sinx = xp.sin(x)
+    # Faster to do * before + : x.size + y.size vs x.size * y.size multiplications
+    sinx = xp.sin(x)  # ??? do inplace
     siny = xp.sin(y)
-    sinx2 = sinx * sinx
-    siny2 = siny * siny
-    sinx2 = imul(sinx2, ..., -4.0)
-    siny2 = imul(siny2, ..., -4.0)
+    sinx = imul(sinx, ..., sinx)
+    siny = imul(siny, ..., siny)
+    sinx = imul(sinx, ..., -4.0)
+    siny = imul(siny, ..., -4.0)
 
-    denom = sinx2 + siny2
-
-    z_bar = fsin / denom  # ??? do inplace instead
+    denom = sinx + siny
+    z_bar = idiv(fsin, ..., denom)
     z = xp.zeros(result_shape, dtype=fsin.dtype)
     if ub is not None:
-        z = setitem(z, (...,), ub)  # z[:] = ub
+        z = setitem(z, ..., ub)  # z[:] = ub
 
     s1_1 = slice(1, -1)
     # Equivalent to: z[..., 1:-1, 1:-1] = idst1_2d(z_bar, workers=workers)
