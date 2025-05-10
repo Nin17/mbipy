@@ -22,11 +22,24 @@ if TYPE_CHECKING:  # pragma: no cover
     from numpy.typing import NDArray
 
 
-# TODO(nin17): optional pyvkfft with cupy
+
+def _check_s(s):
+    if not len(s) == 2:
+        msg = "s must be a tuple of length 2"
+        raise ValueError(msg)
+    if not all(isinstance(i, int) for i in s):
+        msg = "s must be a tuple of integers"
+        raise ValueError(msg)
+
+def _contiguous(x: NDArray) -> NDArray:
+    xp = array_namespace(x)
+    if not (x.flags.c_contiguous or x.flags.f_contiguous):
+        x = xp.ascontiguousarray(x)
+    return x
 
 
 def rfft_2d(
-    a: NDArray[floating],
+    x: NDArray[floating],
     s: tuple[int, int],
     workers: int | None = None,
 ) -> NDArray[complexfloating]:
@@ -34,7 +47,7 @@ def rfft_2d(
 
     Parameters
     ----------
-    a : NDArray[floating]
+    x : NDArray[floating]
         Input array.
     s : tuple[int, int]
         Length along last two axes to use from input array.
@@ -47,15 +60,23 @@ def rfft_2d(
         Transformed input array.
     """
     axes = (-2, -1)
-    xp = array_namespace(a)
+    xp = array_namespace(x)
     if is_numpy_namespace(xp) and cfg.have_scipy:
         fft = importlib.import_module("scipy.fft")
-        return fft.rfft2(a, s=s, axes=axes, workers=workers)
-    return xp.fft.rfftn(a, s=s, axes=axes)
+        return fft.rfft2(x, s=s, axes=axes, workers=workers)
+    if is_cupy_namespace(xp) and cfg.use_pyvkfft:
+        fft = importlib.import_module("pyvkfft.fft")
+        _check_s(s)
+        if s != x.shape[-2:]:
+            msg = "s must be equal to the last two dimensions of x"
+            raise ValueError(msg)
+        x = _contiguous(x)
+        return fft.rfftn(x, ndim=2)
+    return xp.fft.rfftn(x, s=s, axes=axes)
 
 
 def irfft_2d(
-    a: NDArray[complexfloating],
+    x: NDArray[complexfloating],
     s: tuple[int, int],
     workers: int | None = None,
 ) -> NDArray[floating]:
@@ -63,7 +84,7 @@ def irfft_2d(
 
     Parameters
     ----------
-    a : NDArray[complexfloating]
+    x : NDArray[complexfloating]
         Input array.
     s : tuple[int, int]
         Length along last two axes to use from input array.
@@ -76,22 +97,36 @@ def irfft_2d(
         Transformed input array.
     """
     axes = (-2, -1)
-    xp = array_namespace(a)
+    xp = array_namespace(x)
     if is_numpy_namespace(xp) and cfg.have_scipy:
         fft = importlib.import_module("scipy.fft")
-        return fft.irfft2(a, s=s, axes=axes, workers=workers)
-    return xp.fft.irfftn(a, s=s, axes=axes)
+        return fft.irfft2(x, s=s, axes=axes, workers=workers)
+    if is_cupy_namespace(xp) and cfg.use_pyvkfft:
+        fft = importlib.import_module("pyvkfft.fft")
+        _check_s(s)
+        if s != x.shape[-2:]:
+            if not all(i >= j for i, j in zip(s, x.shape[-2:])):
+                msg = "s must be greater than or equal to the last two dimensions of x"
+                raise ValueError(msg)
+            shape = x.shape[:-2] + s
+            _x = xp.zeros(shape, dtype=x.dtype)
+            _x[..., : x.shape[-2], : x.shape[-1]] = x
+            x = _x
+        else:
+            x = _contiguous(x)
+        return fft.irfftn(x, ndim=2)
+    return xp.fft.irfftn(x, s=s, axes=axes)
 
 
 def fft_2d(
-    a: NDArray[complexfloating],
+    x: NDArray[complexfloating],
     workers: int | None = None,
 ) -> NDArray[complexfloating]:
     """Compute the FFT of the last two axes of a complex-valued array.
 
     Parameters
     ----------
-    a : NDArray[complexfloating]
+    x : NDArray[complexfloating]
         Input array.
     workers : int | None, optional
         Maximum number of parallel workers (used by SciPy), by default None
@@ -102,22 +137,29 @@ def fft_2d(
         Transformed input array.
     """
     axes = (-2, -1)
-    xp = array_namespace(a)
+    xp = array_namespace(x)
     if is_numpy_namespace(xp) and cfg.have_scipy:
-        _fft = importlib.import_module("scipy.fft")
-        return _fft.fft2(a, axes=axes, workers=workers)
-    return xp.fft.fftn(a, axes=axes)
+        fft = importlib.import_module("scipy.fft")
+        return fft.fft2(x, axes=axes, workers=workers)
+    if is_cupy_namespace(xp) and cfg.use_pyvkfft:
+        fft = importlib.import_module("pyvkfft.fft")
+        x = _contiguous(x)
+        if not xp.isdtype(x, "complex floating"):
+            msg = "x must be a complex-valued array"
+            raise ValueError(msg)
+        return fft.fftn(x, ndim=2)
+    return xp.fft.fftn(x, axes=axes)
 
 
 def ifft_2d(
-    a: NDArray[complexfloating],
+    x: NDArray[complexfloating],
     workers: int | None = None,
 ) -> NDArray[complexfloating]:
     """Compute the inverse FFT of the last two axes of a complex-valued array.
 
     Parameters
     ----------
-    a : NDArray[complexfloating]
+    x : NDArray[complexfloating]
         Input array.
     workers : int | None, optional
         Maximum number of parallel workers (used by SciPy), by default None
@@ -128,11 +170,19 @@ def ifft_2d(
         Transformed input array.
     """
     axes = (-2, -1)
-    xp = array_namespace(a)
+    xp = array_namespace(x)
     if is_numpy_namespace(xp) and cfg.have_scipy:
         fft = importlib.import_module("scipy.fft")
-        return fft.ifft2(a, axes=axes, workers=workers)
-    return xp.fft.ifftn(a, axes=axes)
+        return fft.ifft2(x, axes=axes, workers=workers)
+    if is_cupy_namespace(xp) and cfg.use_pyvkfft:
+        fft = importlib.import_module("pyvkfft.fft")
+        x = _contiguous(x)
+        if not xp.isdtype(x, "complex floating"):
+            msg = "x must be a complex-valued array"
+            raise ValueError(msg)
+            
+        return fft.ifftn(x, ndim=2)
+    return xp.fft.ifftn(x, axes=axes)
 
 
 def dct2_2d(x: NDArray[floating], workers: int | None = None) -> NDArray[floating]:
@@ -159,26 +209,30 @@ def dct2_2d(x: NDArray[floating], workers: int | None = None) -> NDArray[floatin
         If the array namespace is not cupy, jax, numpy or torch.
     """
     # ??? could implement this myself like the DST - remove torch_dct dependency
+    axes = (-2, -1)
     xp = array_namespace(x)
-    kwargs = {"workers": workers, "axes": (-2, -1)}
     if is_numpy_namespace(xp):
         if not cfg.have_scipy:
             msg = "Need SciPy for the DCT"
             raise ImportError(msg)
-        dctn = importlib.import_module("scipy.fft").dctn
+        fft = importlib.import_module("scipy.fft")
+        return fft.dctn(x, type=2, axes=axes, workers=workers)
+    elif is_cupy_namespace(xp):
+        if cfg.use_pyvkfft:
+            fft = importlib.import_module("pyvkfft.fft")
+            x = _contiguous(x)
+            return fft.dctn(x, ndim=2, dct_type=2)
+        fft = importlib.import_module("cupyx.scipy.fft")
+        return fft.dctn(x, type=2, axes=axes)
+    elif is_jax_namespace(xp):
+        fft = importlib.import_module("jax.scipy.fft")
+        return fft.dctn(x, type=2, axes=axes)
+    elif is_torch_namespace(xp):
+        dctn = importlib.import_module("torch_dct").dct_2d
+        return dctn(x)
     else:
-        del kwargs["workers"]
-        if is_cupy_namespace(xp):
-            dctn = importlib.import_module("cupyx.scipy.fft").dctn
-        elif is_jax_namespace(xp):
-            dctn = importlib.import_module("jax.scipy.fft").dctn
-        elif is_torch_namespace(xp):
-            dctn = importlib.import_module("torch_dct").dct_2d
-            del kwargs["axes"]
-        else:
-            msg = "dct is not implemented for this array namespace."
-            raise NotImplementedError(msg)
-    return dctn(x, **kwargs)
+        msg = "dct is not implemented for this array namespace."
+        raise NotImplementedError(msg)
 
 
 def idct2_2d(x: NDArray[floating], workers: int | None = None) -> NDArray[floating]:
@@ -204,26 +258,30 @@ def idct2_2d(x: NDArray[floating], workers: int | None = None) -> NDArray[floati
     NotImplementedError
         If the array namespace is not cupy, jax, numpy or torch.
     """
+    axes = (-2, -1)
     xp = array_namespace(x)
-    kwargs = {"workers": workers, "axes": (-2, -1)}
     if is_numpy_namespace(xp):
         if not cfg.have_scipy:
             msg = "Need SciPy for the IDCT"
             raise ImportError(msg)
-        idctn = importlib.import_module("scipy.fft").idctn
+        fft = importlib.import_module("scipy.fft")
+        return fft.idctn(x, type=2, axes=axes, workers=workers)
+    elif is_cupy_namespace(xp):
+        if cfg.use_pyvkfft:
+            fft = importlib.import_module("pyvkfft.fft")
+            x = _contiguous(x)
+            return fft.idctn(x, ndim=2, dct_type=2)
+        fft = importlib.import_module("cupyx.scipy.fft")
+        return fft.idctn(x, type=2, axes=axes)
+    elif is_jax_namespace(xp):
+        fft = importlib.import_module("jax.scipy.fft")
+        return fft.idctn(x, type=2, axes=axes)
+    elif is_torch_namespace(xp):
+        idctn = importlib.import_module("torch_dct").idct_2d
+        return idctn(x)
     else:
-        del kwargs["workers"]
-        if is_cupy_namespace(xp):
-            idctn = importlib.import_module("cupyx.scipy.fft").idctn
-        elif is_jax_namespace(xp):
-            idctn = importlib.import_module("jax.scipy.fft").idctn
-        elif is_torch_namespace(xp):
-            idctn = importlib.import_module("torch_dct").idct_2d
-            del kwargs["axes"]
-        else:
-            msg = "idct is not implemented for this array namespace"
-            raise NotImplementedError(msg)
-    return idctn(x, **kwargs)
+        msg = "idct is not implemented for this array namespace"
+        raise NotImplementedError(msg)
 
 
 def _dst1(x: NDArray[floating], axis: int = -1) -> NDArray[floating]:
@@ -334,10 +392,14 @@ def dst1_2d(
     xp = array_namespace(x)
     if is_numpy_namespace(xp):
         if cfg.have_scipy:
-            spfft = importlib.import_module("scipy.fft")
-            return spfft.dstn(x, type=1, axes=axes, workers=workers)
+            fft = importlib.import_module("scipy.fft")
+            return fft.dstn(x, type=1, axes=axes, workers=workers)
         msg = "x is a numpy array and scipy isn't installed - fallback to slow method."
         warnings.warn(msg, stacklevel=2)
+    if is_cupy_namespace(xp) and cfg.have_pyvkfft:
+        fft = importlib.import_module("pyvkfft.fft")
+        x = _contiguous(x)
+        return fft.dstn(x, ndim=2, dst_type=1)
     return _dst1_nd(x, axes=axes)
 
 
@@ -365,8 +427,12 @@ def idst1_2d(
     xp = array_namespace(x)
     if is_numpy_namespace(xp):
         if cfg.have_scipy:
-            spfft = importlib.import_module("scipy.fft")
-            return spfft.idstn(x, type=1, axes=axes, workers=workers)
+            fft = importlib.import_module("scipy.fft")
+            return fft.idstn(x, type=1, axes=axes, workers=workers)
         msg = "x is a numpy array and scipy isn't installed - fallback to slow method."
         warnings.warn(msg, stacklevel=2)
+    if is_cupy_namespace(xp) and cfg.have_pyvkfft:
+        fft = importlib.import_module("pyvkfft.fft")
+        x = _contiguous(x)
+        return fft.idstn(x, ndim=2, dst_type=1)
     return _idst1_nd(x, axes=axes)
