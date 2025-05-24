@@ -62,7 +62,7 @@ def frankot(
 
     Returns
     -------
-    NDArray[floating]
+    (..., M, N) NDArray[floating]
         Normal field(s).
 
     Raises
