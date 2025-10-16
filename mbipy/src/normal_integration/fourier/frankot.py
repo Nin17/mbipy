@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Literal
 
 from mbipy.src.normal_integration.fourier.padding import antisymmetric
 from mbipy.src.normal_integration.fourier.utils import (
+    FFTMethod,
     fft_2d,
     ifft_2d,
     irfft_2d,
@@ -29,7 +30,7 @@ from mbipy.src.utils import (
     setitem,
 )
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     from numpy import floating
     from numpy.typing import NDArray
 
@@ -39,7 +40,7 @@ def frankot(
     gx: NDArray[floating],
     pad: Literal["antisymmetric"] | None = None,
     workers: int | None = None,
-    use_rfft: bool | None = None,
+    fft_method: FFTMethod = FFTMethod.FFT,
 ) -> NDArray[floating]:
     """Perform normal integration using the method of Frankot and Chellappa.
 
@@ -86,10 +87,13 @@ def frankot(
         msg = f"Invalid value for pad: {pad}"
         raise ValueError(msg)
 
-    fx = astype(xp.fft.rfftfreq(x2) if use_rfft else xp.fft.fftfreq(x2), dtype)
+    fx = astype(
+        xp.fft.rfftfreq(x2) if fft_method == FFTMethod.RFFT else xp.fft.fftfreq(x2),
+        dtype,
+    )
     fy = astype(xp.fft.fftfreq(y2)[:, None], dtype)
 
-    if use_rfft:
+    if fft_method == FFTMethod.RFFT:
         s = (y2, x2)
         gx_fft = rfft_2d(gx, s=s, workers=workers)
         gy_fft = rfft_2d(gy, s=s, workers=workers)
@@ -112,6 +116,6 @@ def frankot(
     f_den = setitem(f_den, (..., 0, 0), 1.0)  # avoid division by zero warning
     frac = idiv(f_num, ..., f_den)  # f_num is frac
     frac = setitem(frac, (..., 0, 0), 0.0)
-    if use_rfft:
+    if fft_method == FFTMethod.RFFT:
         return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]
     return xp.real(ifft_2d(frac, workers=workers)[..., :y, :x])

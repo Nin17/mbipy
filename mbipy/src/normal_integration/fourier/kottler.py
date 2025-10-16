@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Literal
 
 from mbipy.src.normal_integration.fourier.padding import antisymmetric
 from mbipy.src.normal_integration.fourier.utils import (
+    FFTMethod,
     fft_2d,
     ifft_2d,
     irfft_2d,
@@ -28,7 +29,7 @@ from mbipy.src.utils import (
     setitem,
 )
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     from numpy import floating
     from numpy.typing import NDArray
 
@@ -38,7 +39,7 @@ def kottler(
     gx: NDArray[floating],
     pad: Literal["antisymmetric"] | None = None,
     workers: int | None = None,
-    use_rfft: bool | None = None,
+    fft_method: FFTMethod = FFTMethod.FFT,
 ) -> NDArray[floating]:
     """Perform normal integration using the method of Kottler et al.
 
@@ -85,13 +86,16 @@ def kottler(
         msg = f"Invalid value for pad: {pad}"
         raise ValueError(msg)
 
-    fx = astype(xp.fft.rfftfreq(x2) if use_rfft else xp.fft.fftfreq(x2), dtype)
+    fx = astype(
+        xp.fft.rfftfreq(x2) if fft_method == FFTMethod.RFFT else xp.fft.fftfreq(x2),
+        dtype,
+    )
     fy = astype(xp.fft.fftfreq(y2)[:, None], dtype)
     fx = astype(fx, cdtype)
     fx = imul(fx, ..., 2.0j * xp.pi)  # Equivalent to fx *= 2.0j*xp.pi
     fy = imul(fy, ..., -2.0 * xp.pi)  # Equivalent to fy *= -2.0*xp.pi
 
-    if use_rfft:
+    if fft_method == FFTMethod.RFFT:
         s = (y2, x2)
         gxfft = rfft_2d(gx, s=s, workers=workers)
         gyfft = rfft_2d(gy, s=s, workers=workers)
@@ -107,6 +111,6 @@ def kottler(
     frac = idiv(f_num, ..., denom)  # f_num is frac
     frac = setitem(frac, (..., 0, 0), 0.0)
 
-    if use_rfft:
+    if fft_method == FFTMethod.RFFT:
         return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]
     return xp.real(ifft_2d(frac, workers=workers)[..., :y, :x])

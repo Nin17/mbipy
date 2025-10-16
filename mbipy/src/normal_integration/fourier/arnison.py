@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Literal
 
 from mbipy.src.normal_integration.fourier.padding import antisymmetric
 from mbipy.src.normal_integration.fourier.utils import (
+    FFTMethod,
     fft_2d,
     ifft_2d,
     irfft_2d,
@@ -28,7 +29,7 @@ from mbipy.src.utils import (
     setitem,
 )
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     from numpy import floating
     from numpy.typing import NDArray
 
@@ -38,7 +39,7 @@ def arnison(
     gx: NDArray[floating],
     pad: Literal["antisymmetric"] | None = None,
     workers: int | None = None,
-    use_rfft: bool | None = None,
+    fft_method: FFTMethod = FFTMethod.FFT,
 ) -> NDArray[floating]:
     """Perform normal integration using the method of Arnison et al.
 
@@ -56,8 +57,8 @@ def arnison(
         Type of padding to apply: "antisymmetric" | None, by default None
     workers : int | None, optional
         Passed to scipy.fft fft2 & ifft2, by default None
-    use_rfft : bool | None, optional
-        Use a rfftn instead of fftn, by default None
+    fft_method : FFTMethod, optional
+        FFT method to use, by default FFTMethod.FFT
 
 
     Returns
@@ -85,7 +86,10 @@ def arnison(
         msg = f"Invalid value for pad: {pad}"
         raise ValueError(msg)
 
-    fx = astype(xp.fft.rfftfreq(x2) if use_rfft else xp.fft.fftfreq(x2), dtype)
+    fx = astype(
+        xp.fft.rfftfreq(x2) if fft_method == FFTMethod.RFFT else xp.fft.fftfreq(x2),
+        dtype,
+    )
     fy = astype(xp.fft.fftfreq(y2), dtype)
     fx = imul(fx, ..., xp.pi)
     fy = imul(fy, ..., xp.pi)
@@ -95,7 +99,7 @@ def arnison(
     sinfx = imul(sinfx, ..., 2.0j)
     sinfy = imul(sinfy, ..., -2.0)
 
-    if use_rfft:
+    if fft_method == FFTMethod.RFFT:
         s = (y2, x2)
         gxfft2 = rfft_2d(gx, s=s, workers=workers)
         gyfft2 = rfft_2d(gy, s=s, workers=workers)
@@ -111,6 +115,6 @@ def arnison(
     f_den = setitem(f_den, (..., 0, 0), 1.0)  # avoid division by zero warning
     frac = idiv(f_num, ..., f_den)
     frac = setitem(frac, (..., 0, 0), 0.0)
-    if use_rfft:
+    if fft_method == FFTMethod.RFFT:
         return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]
     return xp.real(ifft_2d(frac, workers=workers)[..., :y, :x])
