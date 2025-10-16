@@ -66,7 +66,7 @@ def antisymmetric(
     sy_ = slice(y, None)
     sx_ = slice(x, None)
 
-    as_gx = xp.empty(gx.shape[:-2] + (y * 2, x * 2), dtype=gx.dtype)
+    as_gx = xp.empty((*gx.shape[:-2], y * 2, x * 2), dtype=gx.dtype)
     # Equivalent to: as_gx[..., :y, :x] = gx
     as_gx = setitem(as_gx, (..., _sy, _sx), gx)
     # Equivalent to: as_gx[..., y:, :x] = gx[..., ::-1, :]
@@ -76,7 +76,7 @@ def antisymmetric(
     # Equivalent to: as_gx[..., y:, x:] = gx_neg[..., ::-1, ::-1]
     as_gx = setitem(as_gx, (..., sy_, sx_), flip(gx_neg, axis=(-2, -1)))
 
-    as_gy = xp.empty(gy.shape[:-2] + (y * 2, x * 2), dtype=gy.dtype)
+    as_gy = xp.empty((*gy.shape[:-2], y * 2, x * 2), dtype=gy.dtype)
     # Equivalent to: as_gy[..., :y, :x] = gy
     as_gy = setitem(as_gy, (..., _sy, _sx), gy)
     # Equivalent to: as_gy[..., y:, :x] = gy_neg[..., ::-1, :]
@@ -119,7 +119,7 @@ def _antireflect(
     sy_ = slice(y, None)
     sx_ = slice(x, None)
 
-    ar_gx = xp.empty(gx.shape[:-2] + (y * 2 - 1, x * 2 - 1), dtype=gx.dtype)
+    ar_gx = xp.empty((*gx.shape[:-2], y * 2 - 1, x * 2 - 1), dtype=gx.dtype)
     # Equivalent to: ar_gx[..., :y, :x] = gx
     ar_gx = setitem(ar_gx, (..., _sy, _sx), gx)
     # Equivalent to: ar_gx[..., y:, :x] = gx[..., -1:1:-1, :]
@@ -129,7 +129,7 @@ def _antireflect(
     # Equivalent to: ar_gx[..., y:, x:] = gx_neg[..., -1:1:-1, -1:1:-1]
     ar_gx = setitem(ar_gx, (..., sy_, sx_), flip(gx_neg[..., :-1, :-1], axis=(-2, -1)))
 
-    ar_gy = xp.empty(gy.shape[:-2] + (y * 2 - 1, x * 2 - 1), dtype=gy.dtype)
+    ar_gy = xp.empty((*gy.shape[:-2], y * 2 - 1, x * 2 - 1), dtype=gy.dtype)
     # Equivalent to: ar_gy[..., :y, :x] = gy
     ar_gy = setitem(ar_gy, (..., _sy, _sx), gy)
     # Equivalent to: ar_gy[..., y:, :x] = gy_neg[..., -1:1:-1, :]
