@@ -14,6 +14,7 @@ __all__ = (
     "southwell",
 )
 
+from mbipy.normal_integration import padding
 from mbipy.src.normal_integration import (
     FFTMethod,
     Li,
@@ -24,6 +25,5 @@ from mbipy.src.normal_integration import (
     frankot,
     kottler,
     li,
-    padding,
     southwell,
 )
