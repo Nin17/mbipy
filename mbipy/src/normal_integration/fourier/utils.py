@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import warnings
+from enum import Enum
 from typing import TYPE_CHECKING
 
 from array_api_compat import (
@@ -17,7 +18,7 @@ from numpy.lib.array_utils import normalize_axis_index
 from mbipy.src.config import config as cfg
 from mbipy.src.utils import array_namespace, idiv
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     from numpy import complexfloating, floating
     from numpy.typing import NDArray
 
@@ -106,7 +107,7 @@ def irfft_2d(
         fft = importlib.import_module("pyvkfft.fft")
         _check_s(s)
         if s != x.shape[-2:]:
-            if not all(i >= j for i, j in zip(s, x.shape[-2:])):
+            if not all(i >= j for i, j in zip(s, x.shape[-2:], strict=True)):
                 msg = "s must be greater than or equal to the last two dimensions of x"
                 raise ValueError(msg)
             shape = x.shape[:-2] + s
@@ -435,3 +436,10 @@ def idst1_2d(
         x = _contiguous(x)
         return fft.idstn(x, ndim=2, dst_type=1)
     return _idst1_nd(x, axes=axes)
+
+
+class FFTMethod(Enum):
+    """Methods for use in fourier based normal integration."""
+
+    RFFT = "rfft"
+    FFT = "fft"
