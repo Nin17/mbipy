@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from mbipy.src.normal_integration.utils import check_shapes
 from mbipy.src.utils import array_namespace, setitem
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     from numpy import floating
     from numpy.typing import NDArray
 

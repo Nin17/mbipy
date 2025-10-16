@@ -24,7 +24,7 @@ from mbipy.src.utils import (
     setitem,
 )
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     from numpy import floating
     from numpy.typing import NDArray
 
