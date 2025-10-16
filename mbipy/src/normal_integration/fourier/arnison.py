@@ -78,13 +78,14 @@ def arnison(
     y, x = check_shapes(gx, gy)
     y2, x2 = 2 * y if pad else y, 2 * x if pad else x
 
-    if pad == "antisymmetric":
-        gy, gx = antisymmetric(gy=gy, gx=gx)
-    elif pad is None:
-        pass
-    else:
-        msg = f"Invalid value for pad: {pad}"
-        raise ValueError(msg)
+    match pad:
+        case "antisymmetric":
+            gy, gx = antisymmetric(gy=gy, gx=gx)
+        case None:
+            ...
+        case _:
+            msg = f"Invalid value for pad: {pad}"
+            raise ValueError(msg)
 
     fx = astype(
         xp.fft.rfftfreq(x2) if fft_method == FFTMethod.RFFT else xp.fft.fftfreq(x2),
@@ -99,22 +100,32 @@ def arnison(
     sinfx = imul(sinfx, ..., 2.0j)
     sinfy = imul(sinfy, ..., -2.0)
 
-    if fft_method == FFTMethod.RFFT:
-        s = (y2, x2)
-        gxfft2 = rfft_2d(gx, s=s, workers=workers)
-        gyfft2 = rfft_2d(gy, s=s, workers=workers)
-        gyfft2 = imul(gyfft2, ..., 1.0j)
-        f_num = gxfft2 + gyfft2
-    else:
-        gyc = astype(gy, cdtype, copy=True)
-        gyc = imul(gyc, ..., 1.0j)
-        operand = gx + gyc
-        f_num = fft_2d(operand, workers=workers)
+    match fft_method:
+        case FFTMethod.RFFT:
+            s = (y2, x2)
+            gxfft2 = rfft_2d(gx, s=s, workers=workers)
+            gyfft2 = rfft_2d(gy, s=s, workers=workers)
+            gyfft2 = imul(gyfft2, ..., 1.0j)
+            f_num = gxfft2 + gyfft2
+        case FFTMethod.FFT:
+            gyc = astype(gy, cdtype, copy=True)
+            gyc = imul(gyc, ..., 1.0j)
+            operand = gx + gyc
+            f_num = fft_2d(operand, workers=workers)
+        case _:
+            msg = f"Invalid value for fft_method: {fft_method}"
+            raise ValueError(msg)
 
     f_den = sinfx + sinfy
     f_den = setitem(f_den, (..., 0, 0), 1.0)  # avoid division by zero warning
     frac = idiv(f_num, ..., f_den)
     frac = setitem(frac, (..., 0, 0), 0.0)
-    if fft_method == FFTMethod.RFFT:
-        return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]
-    return xp.real(ifft_2d(frac, workers=workers)[..., :y, :x])
+
+    match fft_method:
+        case FFTMethod.RFFT:
+            return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]
+        case FFTMethod.FFT:
+            return xp.real(ifft_2d(frac, workers=workers)[..., :y, :x])
+        case _:
+            msg = f"Invalid value for fft_method: {fft_method}"
+            raise ValueError(msg)
