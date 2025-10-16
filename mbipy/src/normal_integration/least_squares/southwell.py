@@ -21,9 +21,9 @@ from mbipy.src.normal_integration.least_squares.utils import (
 )
 from mbipy.src.utils import array_namespace, get_dtypes
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import ModuleType
-    from typing import Callable
 
     from numpy import floating
     from numpy.typing import DTypeLike, NDArray

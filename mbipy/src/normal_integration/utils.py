@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from numpy import broadcast_shapes
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
 
     from numpy.typing import NDArray
 
