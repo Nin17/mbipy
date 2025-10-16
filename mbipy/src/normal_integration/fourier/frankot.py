@@ -125,7 +125,7 @@ def frankot(
     match fft_method:
         case FFTMethod.RFFT:
             return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]
-        case FFTMethod.FFt:
+        case FFTMethod.FFT:
             return xp.real(ifft_2d(frac, workers=workers)[..., :y, :x])
         case _:
             msg = f"Invalid value for fft_method: {fft_method}"
