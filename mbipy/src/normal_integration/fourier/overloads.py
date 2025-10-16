@@ -14,7 +14,7 @@ __all__ = (
     "_rfft_2d_overload",
 )
 
-from typing import Callable
+import importlib
 
 import numpy as np
 from numba import extending, types
@@ -85,7 +85,7 @@ def _rfft_2d_overload(
         s: types.UniTuple,
         workers: types.Integer | types.NoneType = None,
     ) -> types.Array:
-        return np.fft.rfftn(x, s=s, axes=axes, workers=workers)  # pragma: no cover
+        return np.fft.rfftn(x, s=s, axes=axes, workers=workers)
 
     return impl
 
@@ -106,7 +106,7 @@ def _irfft_2d_overload(
         s: types.UniTuple,
         workers: types.Integer | types.NoneType = None,
     ) -> types.Array:
-        return np.fft.irfftn(x, s=s, axes=axes, workers=workers)  # pragma: no cover
+        return np.fft.irfftn(x, s=s, axes=axes, workers=workers)
 
     return impl
 
@@ -123,7 +123,7 @@ def _fft_2d_overload(
         x: types.Array,
         workers: types.Integer | types.NoneType = None,
     ) -> types.Array:
-        return np.fft.fftn(x, axes=axes, workers=workers)  # pragma: no cover
+        return np.fft.fftn(x, axes=axes, workers=workers)
 
     return impl
 
@@ -140,7 +140,7 @@ def _ifft_2d_overload(
         x: types.Array,
         workers: types.Integer | types.NoneType = None,
     ) -> types.Array:
-        return np.fft.ifftn(x, axes=axes, workers=workers)  # pragma: no cover
+        return np.fft.ifftn(x, axes=axes, workers=workers)
 
     return impl
 
@@ -153,13 +153,13 @@ def _dct2_2d_overload(
     _check_x_workers(x, workers)
     axes = (-2, -1)
     if cfg.have_scipy:
-        from scipy import fft as sfft
+        fft = importlib.import_module("scipy.fft")
 
         def impl(
             x: types.Array,
             workers: types.Integer | types.NoneType = None,
         ) -> types.Array:
-            return sfft.dctn(x, type=2, axes=axes, workers=workers)  # pragma: no cover
+            return fft.dctn(x, type=2, axes=axes, workers=workers)
 
         return impl
     msg = "Scipy is required for the DCT"
@@ -174,13 +174,13 @@ def _idct2_2d_overload(
     _check_x_workers(x, workers)
     axes = (-2, -1)
     if cfg.have_scipy:
-        from scipy import fft as sfft
+        fft = importlib.import_module("scipy.fft")
 
         def impl(
             x: types.Array,
             workers: types.Integer | types.NoneType = None,
         ) -> types.Array:
-            return sfft.idctn(x, type=2, axes=axes, workers=workers)  # pragma: no cover
+            return fft.idctn(x, type=2, axes=axes, workers=workers)
 
         return impl
     msg = "Scipy is required for the IDCT"
@@ -195,13 +195,13 @@ def _dst1_2d_overload(
     _check_x_workers(x, workers)
     axes = (-2, -1)
     if cfg.have_scipy:
-        from scipy import fft as sfft
+        fft = importlib.import_module("scipy.fft")
 
         def impl(
             x: types.Array,
             workers: types.Integer | types.NoneType = None,
         ) -> types.Array:
-            return sfft.dstn(x, type=1, axes=axes, workers=workers)  # pragma: no cover
+            return fft.dstn(x, type=1, axes=axes, workers=workers)
 
         return impl
     msg = "Scipy is required for the DST"
@@ -216,13 +216,13 @@ def _idst1_2d_overload(
     _check_x_workers(x, workers)
     axes = (-2, -1)
     if cfg.have_scipy:
-        from scipy import fft as sfft
+        fft = importlib.import_module("scipy.fft")
 
         def impl(
             x: types.Array,
             workers: types.Integer | types.NoneType = None,
         ) -> types.Array:
-            return sfft.idstn(x, type=1, axes=axes, workers=workers)  # pragma: no cover
+            return fft.idstn(x, type=1, axes=axes, workers=workers)
 
         return impl
     msg = "Scipy is required for the IDST"
@@ -233,7 +233,7 @@ def _idst1_2d_overload(
 def _flip_overload(
     m: types.Array,
     axis: types.Integer | types.UniTuple | types.NoneType = None,
-) -> Callable:
+) -> types.Array:
     if not isinstance(m, types.Array):
         msg = f"a must be an array, got {m}."
         raise errors.NumbaTypeError(msg)
@@ -242,7 +242,7 @@ def _flip_overload(
         def impl(
             m: types.Array,
             axis: types.Integer | types.UniTuple | types.NoneType = None,
-        ) -> types.Array:  # pragma: no cover
+        ) -> types.Array:
             if axis == -1:
                 return m[..., ::-1]
             if axis == -2:  # noqa: PLR2004
@@ -255,7 +255,7 @@ def _flip_overload(
         def impl(
             m: types.Array,
             axis: types.Integer | types.UniTuple | types.NoneType = None,
-        ) -> types.Array:  # pragma: no cover
+        ) -> types.Array:
             if axis == (-2, -1):
                 return m[..., ::-1, ::-1]
             msg = "Invalid axis"
