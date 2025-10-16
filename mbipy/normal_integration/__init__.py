@@ -1,8 +1,7 @@
 """Normal integration methods for phase integration from gradients."""
 
-from __future__ import annotations
-
 __all__ = (
+    "FFTMethod",
     "Li",
     "Southwell",
     "arnison",
@@ -11,10 +10,12 @@ __all__ = (
     "frankot",
     "kottler",
     "li",
+    "padding",
     "southwell",
 )
 
 from mbipy.src.normal_integration import (
+    FFTMethod,
     Li,
     Southwell,
     arnison,
@@ -23,5 +24,6 @@ from mbipy.src.normal_integration import (
     frankot,
     kottler,
     li,
+    padding,
     southwell,
 )
