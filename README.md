@@ -125,3 +125,7 @@ Optional:
 * [torch](https://pypi.org/project/torch/)
   * [torch-dct](https://pypi.org/project/torch-dct/)
   * [ptwt](https://pypi.org/project/ptwt/)
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Nin17/mbipy&type=date&legend=top-left)](https://www.star-history.com/#Nin17/mbipy&type=date&legend=top-left)
