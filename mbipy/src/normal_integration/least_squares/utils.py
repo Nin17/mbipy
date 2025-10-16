@@ -13,10 +13,10 @@ from array_api_compat import (
 )
 from numpy import broadcast_shapes
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
 
+    from collections.abc import Callable
     from types import ModuleType
-    from typing import Callable
 
     from numpy import floating, integer
     from numpy.typing import DTypeLike, NDArray
