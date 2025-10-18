@@ -57,8 +57,8 @@ def kottler(
         Type of padding to apply: "antisymmetric" | None , by default None
     workers : int | None, optional
         Passed to scipy.fft fftn & ifftn, by default None
-    rfft : bool, optional
-        Use rfftn instead of fftn, by default True
+    fft_method : FFTMethod, optional
+        FFT method to use, by default FFTMethod.FFT
 
     Returns
     -------

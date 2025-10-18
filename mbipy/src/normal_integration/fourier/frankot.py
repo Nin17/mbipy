@@ -58,8 +58,8 @@ def frankot(
         Type of padding to apply: "antisymmetric" | None , by default None
     workers : int | None, optional
         Passed to scipy.fft fftn & ifftn, by default None
-    use_rfft : bool | None, optional
-        Use a rfftn instead of fftn, by default None
+    fft_method : FFTMethod, optional
+        FFT method to use, by default FFTMethod.FFT
 
     Returns
     -------
