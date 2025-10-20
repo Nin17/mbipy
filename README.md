@@ -14,7 +14,7 @@ pip install .
 
 ## Usage
 
-See the [example notebooks](examples).
+See the [example notebooks](docs/examples).
 
 ## Algorithms
 
@@ -110,6 +110,7 @@ To download the data for the examples, you need to use [git-lfs](https://git-lfs
 ## Dependencies
 
 * [array-api-compat](https://pypi.org/project/array-api-compat/)
+* [array-api-extra](https://pypi.org/project/array-api-extra/)
 * [numpy](https://pypi.org/project/numpy/)
 
 Optional:
@@ -117,14 +118,14 @@ Optional:
 * [scipy](https://pypi.org/project/)
 * [pywavelets](https://pypi.org/project/PyWavelets/)
 * [cupy](https://pypi.org/project/cupy/)
-  * [pyvkfft](https://pypi.org/project/pyvkfft/)
+    * [pyvkfft](https://pypi.org/project/pyvkfft/)
 * [numba](https://pypi.org/project/numba/)
-  * [rocket-fft](https://pypi.org/project/rocket-fft/)
+    * [rocket-fft](https://pypi.org/project/rocket-fft/)
 * [jax](https://pypi.org/project/jax/)
-  * [jaxwt](https://pypi.org/project/jaxwt/)
+    * [jaxwt](https://pypi.org/project/jaxwt/)
 * [torch](https://pypi.org/project/torch/)
-  * [torch-dct](https://pypi.org/project/torch-dct/)
-  * [ptwt](https://pypi.org/project/ptwt/)
+    * [torch-dct](https://pypi.org/project/torch-dct/)
+    * [ptwt](https://pypi.org/project/ptwt/)
 
 ## Star History
 
