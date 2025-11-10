@@ -92,18 +92,25 @@ class BaseSparseNormalIntegration:
         idtype: DTypeLike | None = None,
         fdtype: DTypeLike | None = None,
     ) -> None:
-        """Based class for sparse least squares normal integration."""
-        self.shape = shape
-        xp = xp or importlib.import_module("numpy")
-        self.xp = xp
-        idtype = idtype or xp.int64
-        fdtype = fdtype or xp.float64
-        self.idtype = idtype
-        self.fdtype = fdtype
+        """Sparse least squares normal integration.
 
-        f, mt = self._factorized_mt_func(shape, xp, idtype, fdtype)
-        self._f = f
-        self._mt = mt
+        Parameters
+        ----------
+        shape : tuple[int, int]
+            Shape of the gradient fields.
+        xp : ModuleType | None, optional
+            Array library (only numpy & cupy supported), by default None
+        idtype : DTypeLike | None, optional
+            integer dtype, by default None
+        fdtype : DTypeLike | None, optional
+            floating dtype, by default None
+        """
+        self.shape = shape
+        self.xp = xp or importlib.import_module("numpy")
+        self.idtype = idtype or xp.int64
+        self.fdtype = fdtype or xp.float64
+
+        self._f, self._mt = self._factorized_mt_func(shape, xp, idtype, fdtype)
 
     def __repr__(self) -> str:
         """Representation of sparse normal integration classes."""
