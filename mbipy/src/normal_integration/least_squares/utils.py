@@ -97,7 +97,7 @@ class BaseSparseNormalIntegration:
         Parameters
         ----------
         shape : tuple[int, int]
-            Shape of the gradient fields.
+            Shape of the gradient fields: (M, N).
         xp : ModuleType | None, optional
             Array library (only numpy & cupy supported), by default None
         idtype : DTypeLike | None, optional
@@ -163,3 +163,25 @@ class BaseSparseNormalIntegration:
         """Vector function to be implemented by subclasses."""
         msg = "Subclasses must implement _vec_func."
         raise NotImplementedError(msg)
+
+    def integrate(
+        self,
+        gy: NDArray[floating],
+        gx: NDArray[floating],
+    ) -> NDArray[floating]:
+        """Perform normal integration.
+
+        Parameters
+        ----------
+        gy : (M, N) NDArray[floating]
+            Vertical gradient.
+        gx : (M, N) NDArray[floating]
+            Horizontal gradient.
+
+        Returns
+        -------
+        (M, N) NDArray[floating]
+            Normal field.
+
+        """
+        return self.__call__(self, gy, gx)
