@@ -441,5 +441,8 @@ def idst1_2d(
 class FFTMethod(Enum):
     """Methods for use in fourier based normal integration."""
 
-    RFFT = "rfft"
     FFT = "fft"
+    """Fast Fourier Transform"""
+    RFFT = "rfft"
+    """Real Fast Fourier Transform: Reduces memory usage for real arrays."""
+
