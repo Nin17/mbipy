@@ -15,7 +15,7 @@ from array_api_compat import (
 )
 from numpy.lib.array_utils import normalize_axis_index
 
-from mbipy.src.config import config as cfg
+from mbipy.src.config import config as cfg  # ??? where to import from - want in docs
 from mbipy.src.utils import array_namespace, idiv
 
 if TYPE_CHECKING:
@@ -54,7 +54,7 @@ def rfft_2d(
     s : tuple[int, int]
         Length along last two axes to use from input array.
     workers : int | None, optional
-        Maximum number of parallel workers (used by SciPy), by default None
+        Maximum number of parallel workers (used by SciPy), by default `None`
 
     Returns
     -------
@@ -63,7 +63,7 @@ def rfft_2d(
     """
     axes = (-2, -1)
     xp = array_namespace(x)
-    if is_numpy_namespace(xp) and cfg.have_scipy:
+    if is_numpy_namespace(xp) and cfg._have_scipy:
         fft = importlib.import_module("scipy.fft")
         return fft.rfft2(x, s=s, axes=axes, workers=workers)
     if is_cupy_namespace(xp) and cfg.use_pyvkfft:
@@ -91,7 +91,7 @@ def irfft_2d(
     s : tuple[int, int]
         Length along last two axes to use from input array.
     workers : int | None, optional
-        Maximum number of parallel workers (used by SciPy), by default None
+        Maximum number of parallel workers (used by SciPy), by default `None`
 
     Returns
     -------
@@ -100,7 +100,7 @@ def irfft_2d(
     """
     axes = (-2, -1)
     xp = array_namespace(x)
-    if is_numpy_namespace(xp) and cfg.have_scipy:
+    if is_numpy_namespace(xp) and cfg._have_scipy:
         fft = importlib.import_module("scipy.fft")
         return fft.irfft2(x, s=s, axes=axes, workers=workers)
     if is_cupy_namespace(xp) and cfg.use_pyvkfft:
@@ -131,7 +131,7 @@ def fft_2d(
     x : NDArray[complexfloating]
         Input array.
     workers : int | None, optional
-        Maximum number of parallel workers (used by SciPy), by default None
+        Maximum number of parallel workers (used by SciPy), by default `None`
 
     Returns
     -------
@@ -140,7 +140,7 @@ def fft_2d(
     """
     axes = (-2, -1)
     xp = array_namespace(x)
-    if is_numpy_namespace(xp) and cfg.have_scipy:
+    if is_numpy_namespace(xp) and cfg.use_scipy_fft:
         fft = importlib.import_module("scipy.fft")
         return fft.fft2(x, axes=axes, workers=workers)
     if is_cupy_namespace(xp) and cfg.use_pyvkfft:
@@ -164,7 +164,7 @@ def ifft_2d(
     x : NDArray[complexfloating]
         Input array.
     workers : int | None, optional
-        Maximum number of parallel workers (used by SciPy), by default None
+        Maximum number of parallel workers (used by SciPy), by default `None`
 
     Returns
     -------
@@ -173,7 +173,7 @@ def ifft_2d(
     """
     axes = (-2, -1)
     xp = array_namespace(x)
-    if is_numpy_namespace(xp) and cfg.have_scipy:
+    if is_numpy_namespace(xp) and cfg.use_scipy_fft:
         fft = importlib.import_module("scipy.fft")
         return fft.ifft2(x, axes=axes, workers=workers)
     if is_cupy_namespace(xp) and cfg.use_pyvkfft:
@@ -195,7 +195,7 @@ def dct2_2d(x: NDArray[floating], workers: int | None = None) -> NDArray[floatin
     x : NDArray[floating]
         Input array.
     workers : int | None, optional
-        Maximum number of parallel workers (used by SciPy), by default None
+        Maximum number of parallel workers (used by SciPy), by default `None`
 
     Returns
     -------
@@ -214,7 +214,7 @@ def dct2_2d(x: NDArray[floating], workers: int | None = None) -> NDArray[floatin
     axes = (-2, -1)
     xp = array_namespace(x)
     if is_numpy_namespace(xp):
-        if not cfg.have_scipy:
+        if not cfg._have_scipy:
             msg = "Need SciPy for the DCT"
             raise ImportError(msg)
         fft = importlib.import_module("scipy.fft")
@@ -244,7 +244,7 @@ def idct2_2d(x: NDArray[floating], workers: int | None = None) -> NDArray[floati
     x : NDArray[floating]
         Input array.
     workers : int | None, optional
-        Maximum number of parallel workers (used by SciPy), by default None
+        Maximum number of parallel workers (used by SciPy), by default `None`
 
     Returns
     -------
@@ -262,7 +262,7 @@ def idct2_2d(x: NDArray[floating], workers: int | None = None) -> NDArray[floati
     axes = (-2, -1)
     xp = array_namespace(x)
     if is_numpy_namespace(xp):
-        if not cfg.have_scipy:
+        if not cfg._have_scipy:
             msg = "Need SciPy for the IDCT"
             raise ImportError(msg)
         fft = importlib.import_module("scipy.fft")
@@ -325,7 +325,7 @@ def _dst1_nd(
     x : NDArray[floating]
         Input array.
     axes : tuple[int, ...] | None, optional
-        Axes over which to apply the Type I DST, by default None
+        Axes over which to apply the Type I DST, by default `None`
 
     Returns
     -------
@@ -351,7 +351,7 @@ def _idst1_nd(
     x : NDArray[floating]
         Input array.
     axes : tuple[int, ...] | None, optional
-        Axes over which to compute the Type I IDST, by default None
+        Axes over which to compute the Type I IDST, by default `None`
 
     Returns
     -------
@@ -381,7 +381,7 @@ def dst1_2d(
     x : NDArray[floating]
         Input array.
     workers : int | None, optional
-        Maximum number of parallel workers (used by SciPy), by default None
+        Maximum number of parallel workers (used by SciPy), by default `None`
 
     Returns
     -------
@@ -391,12 +391,12 @@ def dst1_2d(
     axes = (-2, -1)
     xp = array_namespace(x)
     if is_numpy_namespace(xp):
-        if cfg.have_scipy:
+        if cfg._have_scipy:
             fft = importlib.import_module("scipy.fft")
             return fft.dstn(x, type=1, axes=axes, workers=workers)
         msg = "x is a numpy array and scipy isn't installed - fallback to slow method."
         warnings.warn(msg, stacklevel=2)
-    if is_cupy_namespace(xp) and cfg.have_pyvkfft:
+    if is_cupy_namespace(xp) and cfg._have_pyvkfft:
         fft = importlib.import_module("pyvkfft.fft")
         x = _contiguous(x)
         return fft.dstn(x, ndim=2, dst_type=1)
@@ -416,7 +416,7 @@ def idst1_2d(
     x : NDArray[floating]
         Input array.
     workers : int | None, optional
-        Maximum number of parallel workers (used by SciPy), by default None
+        Maximum number of parallel workers (used by SciPy), by default `None`
 
     Returns
     -------
@@ -426,12 +426,12 @@ def idst1_2d(
     axes = (-2, -1)
     xp = array_namespace(x)
     if is_numpy_namespace(xp):
-        if cfg.have_scipy:
+        if cfg._have_scipy:
             fft = importlib.import_module("scipy.fft")
             return fft.idstn(x, type=1, axes=axes, workers=workers)
         msg = "x is a numpy array and scipy isn't installed - fallback to slow method."
         warnings.warn(msg, stacklevel=2)
-    if is_cupy_namespace(xp) and cfg.have_pyvkfft:
+    if is_cupy_namespace(xp) and cfg._have_pyvkfft:
         fft = importlib.import_module("pyvkfft.fft")
         x = _contiguous(x)
         return fft.idstn(x, ndim=2, dst_type=1)
@@ -442,19 +442,14 @@ class FFTMethod(Enum):
     """
     Methods for use in fourier based normal integration.
 
-    ???+ warning
-
-        The results are not necessarily consistent between the two methods.
+    !!! warning "The results are not necessarily consistent between the two methods."
     """
 
     FFT = "fft"
-    """Fast Fourier Transform"""
+    """Fast Fourier Transform: [numpy.fft.fft2][]"""
     RFFT = "rfft"
     """
-    Real Fast Fourier Transform
+    Real Fast Fourier Transform: [numpy.fft.rfft2][]
 
-    ???+ info
-
-        Reduces memory usage for real arrays.
+    !!! info "Reduces memory usage for real arrays."
     """
-
