@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__all__ = (
+__all__ = [
     "_dct2_2d_overload",
     "_dst1_2d_overload",
     "_fft_2d_overload",
@@ -12,9 +12,9 @@ __all__ = (
     "_ifft_2d_overload",
     "_irfft_2d_overload",
     "_rfft_2d_overload",
-)
+]
 
-import importlib
+from importlib import import_module
 
 import numpy as np
 from numba import extending, types
@@ -79,13 +79,24 @@ def _rfft_2d_overload(
     _check_s(s)
     axes = (-2, -1)
 
-    # !!! workers in both numpy and scipy with rocket-fft
-    def impl(
-        x: types.Array,
-        s: types.UniTuple,
-        workers: types.Integer | types.NoneType = None,
-    ) -> types.Array:
-        return np.fft.rfftn(x, s=s, axes=axes, workers=workers)
+    if cfg.use_scipy_fft:
+        fft = import_module("scipy.fft")
+
+        def impl(
+            x: types.Array,
+            s: types.UniTuple,
+            workers: types.Integer | types.NoneType = None,
+        ) -> types.Array:
+            return fft.rfftn(x, s=s, axes=axes, workers=workers)
+
+    else:
+
+        def impl(
+            x: types.Array,
+            s: types.UniTuple,
+            workers: types.Integer | types.NoneType = None,
+        ) -> types.Array:
+            return np.fft.rfftn(x, s=s, axes=axes)
 
     return impl
 
@@ -100,13 +111,24 @@ def _irfft_2d_overload(
     _check_s(s)
     axes = (-2, -1)
 
-    # !!! workers in both numpy and scipy with rocket-fft
-    def impl(
-        x: types.Array,
-        s: types.UniTuple,
-        workers: types.Integer | types.NoneType = None,
-    ) -> types.Array:
-        return np.fft.irfftn(x, s=s, axes=axes, workers=workers)
+    if cfg.use_scipy_fft:
+        fft = import_module("scipy.fft")
+
+        def impl(
+            x: types.Array,
+            s: types.UniTuple,
+            workers: types.Integer | types.NoneType = None,
+        ) -> types.Array:
+            return fft.irfftn(x, s=s, axes=axes, workers=workers)
+
+    else:
+
+        def impl(
+            x: types.Array,
+            s: types.UniTuple,
+            workers: types.Integer | types.NoneType = None,
+        ) -> types.Array:
+            return np.fft.irfftn(x, s=s, axes=axes)
 
     return impl
 
@@ -119,11 +141,22 @@ def _fft_2d_overload(
     _check_x_workers(x, workers)
     axes = (-2, -1)
 
-    def impl(
-        x: types.Array,
-        workers: types.Integer | types.NoneType = None,
-    ) -> types.Array:
-        return np.fft.fftn(x, axes=axes, workers=workers)
+    if cfg.use_scipy_fft:
+        fft = import_module("scipy.fft")
+
+        def impl(
+            x: types.Array,
+            workers: types.Integer | types.NoneType = None,
+        ) -> types.Array:
+            return fft.fftn(x, axes=axes, workers=workers)
+
+    else:
+
+        def impl(
+            x: types.Array,
+            workers: types.Integer | types.NoneType = None,
+        ) -> types.Array:
+            return np.fft.fftn(x, axes=axes)
 
     return impl
 
@@ -136,11 +169,22 @@ def _ifft_2d_overload(
     _check_x_workers(x, workers)
     axes = (-2, -1)
 
-    def impl(
-        x: types.Array,
-        workers: types.Integer | types.NoneType = None,
-    ) -> types.Array:
-        return np.fft.ifftn(x, axes=axes, workers=workers)
+    if cfg.use_scipy_fft:
+        fft = import_module("scipy.fft")
+
+        def impl(
+            x: types.Array,
+            workers: types.Integer | types.NoneType = None,
+        ) -> types.Array:
+            return fft.ifftn(x, axes=axes, workers=workers)
+
+    else:
+
+        def impl(
+            x: types.Array,
+            workers: types.Integer | types.NoneType = None,
+        ) -> types.Array:
+            return np.fft.ifftn(x, axes=axes)
 
     return impl
 
@@ -152,8 +196,8 @@ def _dct2_2d_overload(
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
-    if cfg.have_scipy:
-        fft = importlib.import_module("scipy.fft")
+    if cfg._have_scipy:
+        fft = import_module("scipy.fft")
 
         def impl(
             x: types.Array,
@@ -173,8 +217,8 @@ def _idct2_2d_overload(
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
-    if cfg.have_scipy:
-        fft = importlib.import_module("scipy.fft")
+    if cfg._have_scipy:
+        fft = import_module("scipy.fft")
 
         def impl(
             x: types.Array,
@@ -194,8 +238,8 @@ def _dst1_2d_overload(
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
-    if cfg.have_scipy:
-        fft = importlib.import_module("scipy.fft")
+    if cfg._have_scipy:
+        fft = import_module("scipy.fft")
 
         def impl(
             x: types.Array,
@@ -215,8 +259,8 @@ def _idst1_2d_overload(
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
-    if cfg.have_scipy:
-        fft = importlib.import_module("scipy.fft")
+    if cfg._have_scipy:
+        fft = import_module("scipy.fft")
 
         def impl(
             x: types.Array,
