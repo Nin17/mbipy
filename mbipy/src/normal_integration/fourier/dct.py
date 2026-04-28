@@ -8,7 +8,7 @@ Python implementation of: https://github.com/yqueau/normal_integration/blob/1f69
 
 from __future__ import annotations
 
-__all__ = ("dct_poisson",)
+__all__ = ["dct_poisson"]
 
 from typing import TYPE_CHECKING
 
@@ -34,20 +34,27 @@ def dct_poisson(
     gx: NDArray[floating],
     workers: int | None = None,
 ) -> NDArray[floating]:
+    # TODO(nin17): reference + doi link
     """Perform normal integration using the DCT solution to the poisson equation.
+
+    !!! note "Check [the table][integration-functions-table] \
+        for compatible array libraries"
+
+    !!! example "[Example][dct_poisson-example]"
 
     Parameters
     ----------
-    gy : (..., M, N) NDArray[floating]
+    gy : NDArray[floating] (..., M, N)
         Vertical gradient(s).
-    gx : (..., M, N) NDArray[floating]
+    gx : NDArray[floating] (..., M, N)
         Horizontal gradient(s).
     workers : int | None, optional
-        Passed to scipy.fft dctn & idctn, by default None
+        Passed to [scipy.fft.dctn][] & [scipy.fft.idctn][] if `gy` & `gx` are numpy
+        arrays, by default `None`
 
     Returns
     -------
-    (..., M, N) NDArray[floating]
+    NDArray[floating] (..., M, N)
         Normal field(s).
 
     Raises

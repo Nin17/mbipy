@@ -8,7 +8,7 @@ Python implementation of: https://github.com/yqueau/normal_integration/blob/1f69
 
 from __future__ import annotations
 
-__all__ = ("dst_poisson",)
+__all__ = ["dst_poisson"]
 
 
 from typing import TYPE_CHECKING
@@ -38,22 +38,29 @@ def dst_poisson(
     ub: NDArray[floating] | None = None,
     workers: int | None = None,
 ) -> NDArray[floating]:
+    # TODO(nin17): reference + doi link
     """Perform normal integration using the DST solution to the poisson equation.
+
+    !!! note "Check [the table][integration-functions-table] \
+        for compatible array libraries"
+
+    !!! example "[Example][dst_poisson-example]"
 
     Parameters
     ----------
-    gy : (..., M, N) NDArray[floating]
+    gy : NDArray[floating] (..., M, N)
         Vertical gradient(s).
-    gx : (..., M, N) NDArray[floating]
+    gx : NDArray[floating] (..., M, N)
         Horizontal gradient(s).
-    ub : (..., M, N) NDArray[floating] | None, optional
-        Boundary value(s), by default None
+    ub : NDArray[floating] (..., M, N) | None, optional
+        Boundary value(s), by default `None`
     workers : int | None, optional
-        Passed to scipy.fft dstn & idstn, by default None
+        Passed to [scipy.fft.dstn][] & [scipy.fft.idstn][] if `gy` & `gx` are numpy
+        arrays, by default `None`
 
     Returns
     -------
-    (..., M, N) NDArray[floating]
+    NDArray[floating] (..., M, N)
         Normal field(s).
 
     Raises
