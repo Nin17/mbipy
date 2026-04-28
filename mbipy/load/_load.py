@@ -4,11 +4,11 @@ from __future__ import annotations
 
 __all__ = ["load_data", "load_paths", "load_stack"]
 
+from importlib import import_module
 from itertools import chain
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import fabio
 from numpy import stack
 
 if TYPE_CHECKING:
@@ -43,7 +43,8 @@ def load_data(path: str | PathLike, *, frame: int | None = None) -> NDArray:
     NDArray
         Image data.
 
-    """  # FIXME(nin17): [fabio.open][]
+    """
+    fabio = import_module("fabio")
     with fabio.open(path, frame) as f:
         return f.data
 
@@ -86,7 +87,7 @@ def load_paths(
     list[NDArray] | NDArray
         If `axis` is `None`, returns a [list][] of [NDArray][numpy.typing.NDArray]s,
         otherwise returns a single [NDArray][numpy.typing.NDArray].
-    """  # FIXME(nin17): [fabio.open][]
+    """
     images = [load_data(i, frame=frame) for i in paths]
     if axis is None:
         return images
@@ -144,7 +145,7 @@ def load_stack(
         If `axis` is `None`, returns a [list][] of [NDArray][numpy.typing.NDArray]s,
         otherwise returns a single [NDArray][numpy.typing.NDArray].
 
-    """  # FIXME(nin17): [fabio.open][]
+    """
     _path = Path(path)
     file_paths = sorted(
         chain(*[_path.glob(p, **kwargs) for p in patterns]),
