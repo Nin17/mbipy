@@ -1,7 +1,5 @@
 """
-Convenience functions for reading images.
-
-Requires [fabio][].
+Convenience functions for reading images. Requires [fabio][].
 
 ```python
 from mbipy import load
