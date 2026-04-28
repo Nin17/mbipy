@@ -8,8 +8,6 @@ from mbipy import normal_integration
     [mbipy.normal_integration.least_squares][] namespaces are available."
 """
 
-from __future__ import annotations
-
 __all__ = [
     "FFTMethod",
     "Li",
@@ -20,9 +18,11 @@ __all__ = [
     "frankot",
     "kottler",
     "li",
+    "padding",
     "southwell",
 ]
 
+from . import padding
 from .fourier import arnison, dct_poisson, dst_poisson, frankot, kottler
 from .fourier._utils import FFTMethod
 from .least_squares import Li, Southwell, li, southwell
