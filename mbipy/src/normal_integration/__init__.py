@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__all__ = (
+__all__ = [
     "FFTMethod",
     "Li",
     "Southwell",
@@ -13,7 +13,7 @@ __all__ = (
     "kottler",
     "li",
     "southwell",
-)
+]
 
 from .fourier import arnison, dct_poisson, dst_poisson, frankot, kottler
 from .fourier.utils import FFTMethod
