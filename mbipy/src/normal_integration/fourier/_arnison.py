@@ -1,13 +1,13 @@
 """Normal integration using the method of Arnison et al.
 
-Arnison, M. R., Larkin, K. G., Sheppard, C. J., Smith, N. I. & Cogswell, C. J.
+[Arnison, M. R., Larkin, K. G., Sheppard, C. J., Smith, N. I. & Cogswell, C. J.
 Linear phase imaging using differential interference contrast microscopy.
-Journal of microscopy 214, 7-12 (2004).
+Journal of microscopy 214, 7-12 (2004).](https://doi.org/10.1111/j.0022-2720.2004.01293.x)
 """
 
 from __future__ import annotations
 
-__all__ = ("arnison",)
+__all__ = ["arnison"]
 
 from typing import TYPE_CHECKING, Literal
 
@@ -41,29 +41,40 @@ def arnison(
     workers: int | None = None,
     fft_method: FFTMethod = FFTMethod.FFT,
 ) -> NDArray[floating]:
-    """Perform normal integration using the method of Arnison et al.
+    """Perform normal integration using the method of Arnison et al[^1].
 
-    Arnison, M. R., Larkin, K. G., Sheppard, C. J., Smith, N. I. & Cogswell, C. J.
+    !!! note "Check [the table][integration-functions-table] \
+        for compatible array libraries"
+
+    !!! example "[Example][arnison-example]"
+
+    [^1]:[Arnison, M. R., Larkin, K. G., Sheppard, C. J., Smith, N. I. & Cogswell, C. J.
     Linear phase imaging using differential interference contrast microscopy.
-    Journal of microscopy 214, 7-12 (2004).
+    Journal of microscopy 214, 7-12 (2004).](https://doi.org/10.1111/j.0022-2720.2004.01293.x)
 
     Parameters
     ----------
-    gy : (..., M, N) NDArray[floating]
+    gy : NDArray[floating] (..., M, N)
         Vertical gradient(s).
-    gx : (..., M, N) NDArray[floating]
+    gx : NDArray[floating] (..., M, N)
         Horizontal gradient(s).
     pad : Literal["antisymmetric"] | None, optional
-        Type of padding to apply: "antisymmetric" | None, by default None
+        Type of padding to apply:
+        ["antisymmetric"][mbipy.normal_integration.padding.antisymmetric] | None,
+        by default `None`
     workers : int | None, optional
-        Passed to scipy.fft fft2 & ifft2, by default None
+        Passed to [scipy.fft.fft2][]/[scipy.fft.rfft2][] &
+        [scipy.fft.ifft2][]/[scipy.fft.irfft2][] if `gy` & `gx` are numpy
+        arrays and
+        [config.use_scipy_fft][mbipy.src.config.Config.use_scipy_fft] = True,
+        by default `None`
     fft_method : FFTMethod, optional
         FFT method to use, by default FFTMethod.FFT
 
 
     Returns
     -------
-    (..., M, N) NDArray[floating]
+    NDArray[floating] (..., M, N)
         Normal field(s).
 
     Raises

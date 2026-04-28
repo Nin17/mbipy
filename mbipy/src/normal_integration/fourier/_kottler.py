@@ -1,12 +1,12 @@
 """Normal integration using the method of Kottler et al.
 
-Kottler, C., David, C., Pfeiffer, F. & Bunk, O. A two-directional approach for
-grating based differential phase contrast imaging using hard x-rays 2007.
+[Kottler, C., David, C., Pfeiffer, F. & Bunk, O. A two-directional approach for
+grating based differential phase contrast imaging using hard x-rays 2007.](https://doi.org/10.1364/OE.15.001175)
 """
 
 from __future__ import annotations
 
-__all__ = ("kottler",)
+__all__ = ["kottler"]
 
 
 from typing import TYPE_CHECKING, Literal
@@ -41,28 +41,39 @@ def kottler(
     workers: int | None = None,
     fft_method: FFTMethod = FFTMethod.FFT,
 ) -> NDArray[floating]:
-    """Perform normal integration using the method of Kottler et al.
+    """Perform normal integration using the method of Kottler et al[^1].
 
-    Kottler, C., David, C., Pfeiffer, F. & Bunk, O.
+    !!! note "Check [the table][integration-functions-table] \
+        for compatible array libraries"
+
+    !!! example "[Example][kottler-example]"
+
+    [^1]:[Kottler, C., David, C., Pfeiffer, F. & Bunk, O.
     A two-directional approach for grating based differential phase contrast imaging
-    using hard x-rays 2007.
+    using hard x-rays 2007.](https://doi.org/10.1364/OE.15.001175)
 
     Parameters
     ----------
-    gy : (..., M, N) NDArray[floating]
+    gy : NDArray[floating] (..., M, N)
         Vertical gradient(s).
-    gx : (..., M, N) NDArray[floating]
+    gx : NDArray[floating] (..., M, N)
         Horizontal gradient(s).
     pad : Literal["antisymmetric"] | None, optional
-        Type of padding to apply: "antisymmetric" | None , by default None
+        Type of padding to apply:
+        ["antisymmetric"][mbipy.normal_integration.padding.antisymmetric] | None,
+        by default `None`
     workers : int | None, optional
-        Passed to scipy.fft fftn & ifftn, by default None
+        Passed to [scipy.fft.fft2][]/[scipy.fft.rfft2][] &
+        [scipy.fft.ifft2][]/[scipy.fft.irfft2][] if `gy` & `gx` are numpy
+        arrays and
+        [config.use_scipy_fft][mbipy.src.config.Config.use_scipy_fft] = True,
+        by default `None`
     fft_method : FFTMethod, optional
         FFT method to use, by default FFTMethod.FFT
 
     Returns
     -------
-    (..., M, N) NDArray[floating]
+    NDArray[floating] (..., M, N)
         Normal field(s).
 
     Raises

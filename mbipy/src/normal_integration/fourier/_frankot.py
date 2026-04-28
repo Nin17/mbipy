@@ -1,13 +1,13 @@
 """Normal integration using the method of Frankot and Chellappa.
 
-Frankot, R. T. & Chellappa, R. A method for enforcing integrability in shape
+[Frankot, R. T. & Chellappa, R. A method for enforcing integrability in shape
 from shading algorithms.
-IEEE Transactions on pattern analysis and machine intelligence 10, 439-451 (1988)
+IEEE Transactions on pattern analysis and machine intelligence 10, 439-451 (1988)](https://doi.org/10.1109/34.3909)
 """
 
 from __future__ import annotations
 
-__all__ = ("frankot",)
+__all__ = ["frankot"]
 
 
 from typing import TYPE_CHECKING, Literal
@@ -42,28 +42,39 @@ def frankot(
     workers: int | None = None,
     fft_method: FFTMethod = FFTMethod.FFT,
 ) -> NDArray[floating]:
-    """Perform normal integration using the method of Frankot and Chellappa.
+    """Perform normal integration using the method of Frankot and Chellappa[^1].
 
-    Frankot, R. T. & Chellappa, R. A method for enforcing integrability in shape
+    !!! note "Check [the table][integration-functions-table] \
+        for compatible array libraries"
+
+    !!! example "[Example][frankot-example]"
+
+    [^1]:[Frankot, R. T. & Chellappa, R. A method for enforcing integrability in shape
     from shading algorithms.
-    IEEE Transactions on pattern analysis and machine intelligence 10, 439-451 (1988)
+    IEEE Transactions on pattern analysis and machine intelligence 10, 439-451 (1988)](https://doi.org/10.1109/34.3909)
 
     Parameters
     ----------
-    gy : (..., M, N) NDArray[floating]
+    gy : NDArray[floating] (..., M, N)
         Vertical gradient(s).
-    gx : (..., M, N) NDArray[floating]
+    gx : NDArray[floating] (..., M, N)
         Horizontal gradient(s).
     pad : Literal["antisymmetric"] | None, optional
-        Type of padding to apply: "antisymmetric" | None , by default None
+        Type of padding to apply:
+        ["antisymmetric"][mbipy.normal_integration.padding.antisymmetric] | None,
+        by default `None`
     workers : int | None, optional
-        Passed to scipy.fft fftn & ifftn, by default None
+        Passed to [scipy.fft.fft2][]/[scipy.fft.rfft2][] &
+        [scipy.fft.ifft2][]/[scipy.fft.irfft2][] if `gy` & `gx` are numpy
+        arrays and
+        [config.use_scipy_fft][mbipy.src.config.Config.use_scipy_fft] = True,
+        by default `None`
     fft_method : FFTMethod, optional
         FFT method to use, by default FFTMethod.FFT
 
     Returns
     -------
-    (..., M, N) NDArray[floating]
+    NDArray[floating] (..., M, N)
         Normal field(s).
 
     Raises
