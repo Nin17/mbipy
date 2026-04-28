@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__all__ = ("BaseSparseNormalIntegration", "csr_matrix", "factorized")
+__all__ = ["BaseSparseNormalIntegration", "csr_matrix", "factorized"]
 
 import importlib
 from typing import TYPE_CHECKING
@@ -18,8 +18,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from types import ModuleType
 
-    from numpy import floating, integer
-    from numpy.typing import DTypeLike, NDArray
+    from numpy import dtype, floating, integer
+    from numpy.typing import NDArray
 
     from mbipy.src.config import config as cfg
 
@@ -83,34 +83,34 @@ def factorized(a: spmatrix) -> Callable[[NDArray[floating]], NDArray[floating]]:
 
 
 class BaseSparseNormalIntegration:
-    """Base class for sparse least squares normal integration."""
-
     def __init__(
         self,
         shape: tuple[int, int],
         xp: ModuleType | None = None,
-        idtype: DTypeLike | None = None,
-        fdtype: DTypeLike | None = None,
+        idtype: dtype[integer] | None = None,
+        fdtype: dtype[floating] | None = None,
     ) -> None:
         """Sparse least squares normal integration.
+
+        !!! warning "Not part of the public API - use at your own risk!"
 
         Parameters
         ----------
         shape : tuple[int, int]
             Shape of the gradient fields: (M, N).
         xp : ModuleType | None, optional
-            Array library (only numpy & cupy supported), by default None
-        idtype : DTypeLike | None, optional
-            integer dtype, by default None
-        fdtype : DTypeLike | None, optional
-            floating dtype, by default None
+            Array library (only [numpy][] & [cupy][] supported), by default `None`
+        idtype : dtype[integer] | None, optional
+            integer dtype, by default `None`
+        fdtype : dtype[floating] | None, optional
+            floating dtype, by default `None`
         """
         self.shape = shape
         self.xp = xp or importlib.import_module("numpy")
-        self.idtype = idtype or xp.int64
-        self.fdtype = fdtype or xp.float64
+        self.idtype = idtype or self.xp.int64
+        self.fdtype = fdtype or self.xp.float64
 
-        self._f, self._mt = self._factorized_mt_func(shape, xp, idtype, fdtype)
+        self._f, self._mt = self._factorized_mt_func(shape, self.xp, idtype, fdtype)
 
     def __repr__(self) -> str:
         """Representation of sparse normal integration classes."""
@@ -128,14 +128,14 @@ class BaseSparseNormalIntegration:
 
         Parameters
         ----------
-        gy : (M, N) NDArray[floating]
+        gy : NDArray[floating] (M, N)
             Vertical gradient.
-        gx : (M, N) NDArray[floating]
+        gx : NDArray[floating] (M, N)
             Horizontal gradient.
 
         Returns
         -------
-        (M, N) NDArray[floating]
+        NDArray[floating] (M, N)
             Normal field.
 
         """
@@ -151,9 +151,9 @@ class BaseSparseNormalIntegration:
     def _factorized_mt_func(
         shape: tuple[int, int],
         xp: ModuleType,
-        idtype: DTypeLike,
-        fdtype: DTypeLike,
-    ) -> tuple[Callable[[NDArray], NDArray], spmatrix]:
+        idtype: dtype[integer],
+        fdtype: dtype[floating],
+    ) -> tuple[Callable[[NDArray[floating]], NDArray[floating]], spmatrix]:
         """Factorization and transpose of matrix: to be implemented by subclasses."""
         msg = "Subclasses must implement _factorize_func."
         raise NotImplementedError(msg)
@@ -173,14 +173,14 @@ class BaseSparseNormalIntegration:
 
         Parameters
         ----------
-        gy : (M, N) NDArray[floating]
+        gy : NDArray[floating] (M, N)
             Vertical gradient.
-        gx : (M, N) NDArray[floating]
+        gx : NDArray[floating] (M, N)
             Horizontal gradient.
 
         Returns
         -------
-        (M, N) NDArray[floating]
+        NDArray[floating] (M, N)
             Normal field.
 
         """
