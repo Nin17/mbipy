@@ -1,13 +1,12 @@
 """Normal integration using the method of Southwell.
 
-Southwell, W. Wave-front estimation from wave-front slope measurements.
-J. Opt. Soc. Am. 70, 998-1006.
-https://opg.optica.org/abstract.cfm?URI=josa-70-8-998 (Aug. 1980).
+[Southwell, W. Wave-front estimation from wave-front slope measurements.
+J. Opt. Soc. Am. 70, 998-1006.(Aug. 1980).](https://doi.org/10.1364/JOSA.70.000998)
 """
 
 from __future__ import annotations
 
-__all__ = ("Southwell", "southwell")
+__all__ = ["Southwell", "southwell"]
 
 import functools
 from typing import TYPE_CHECKING
@@ -39,14 +38,14 @@ def _southwell_vec(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floa
 
     Parameters
     ----------
-    gy : (M, N) NDArray[floating]
+    gy : NDArray[floating] (M, N)
         Vertical gradient.
-    gx : (M, N) NDArray[floating]
+    gx : NDArray[floating] (M, N)
         Horizontal gradient.
 
     Returns
     -------
-    (2MN - (M+N)) NDArray[floating]
+    NDArray[floating] (2 * M * N - (M + N))
         Vector of size 2MN - (M+N), solve with sparse matrix for given image shape.
 
     """
@@ -115,22 +114,26 @@ def _southwell_factorized_mt(
 
 
 def southwell(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
-    """Perform normal integration using the method of Southwell.
+    """Perform normal integration using the method of Southwell[^1].
 
-    Southwell, W. Wave-front estimation from wave-front slope measurements.
-    J. Opt. Soc. Am. 70, 998-1006.
-    https://opg.optica.org/abstract.cfm?URI=josa-70-8-998 (Aug. 1980).
+    !!! note "Check [the table][integration-functions-table] \
+        for compatible array libraries"
+
+    !!! example "[Example][southwell-example]"
+
+    [^1]:[Southwell, W. Wave-front estimation from wave-front slope measurements.
+    J. Opt. Soc. Am. 70, 998-1006.(Aug. 1980).](https://doi.org/10.1364/JOSA.70.000998)
 
     Parameters
     ----------
-    gy : (M, N) NDArray[floating]
+    gy : NDArray[floating] (M, N)
         Vertical gradient.
-    gx : (M, N) NDArray[floating]
+    gx : NDArray[floating] (M, N)
         Horizontal gradient.
 
     Returns
     -------
-    (M, N) NDArray[floating]
+    NDArray[floating] (M, N)
         Normal field.
 
     """
@@ -151,11 +154,15 @@ def southwell(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]
 
 
 class Southwell(BaseSparseNormalIntegration):
-    """Perform normal integration using the method of Southwell.
+    """Perform normal integration using the method of Southwell[^1].
 
-    Southwell, W. Wave-front estimation from wave-front slope measurements.
-    J. Opt. Soc. Am. 70, 998-1006.
-    https://opg.optica.org/abstract.cfm?URI=josa-70-8-998 (Aug. 1980).
+    !!! note "Check [the table][integration-classes-table] \
+        for compatible array libraries"
+
+    !!! example "[Example][Southwell-example]"
+
+    [^1]:[Southwell, W. Wave-front estimation from wave-front slope measurements.
+    J. Opt. Soc. Am. 70, 998-1006.(Aug. 1980).](https://doi.org/10.1364/JOSA.70.000998)
     """
 
     @staticmethod

@@ -1,14 +1,14 @@
 """Normal integration using the method of Li et al.
 
-Li, G., Li, Y., Liu, K., Ma, X. & Wang, H. Improving wavefront reconstruction
+[Li, G., Li, Y., Liu, K., Ma, X. & Wang, H. Improving wavefront reconstruction
 accuracy by using integration equations with higher-order truncation errors in the
-Southwell geometry. J. Opt. Soc. Am. A 30, 1448-1459.
-https://opg.optica.org/josaa/abstract.cfm?URI=josaa-30-7-1448 (July 2013).
+Southwell geometry. J. Opt. Soc. Am. A 30, 1448-1459.(July 2013).](
+https://doi.org/10.1364/JOSAA.30.001448)
 """
 
 from __future__ import annotations
 
-__all__ = ("Li", "li")
+__all__ = ["Li", "li"]
 
 import functools
 from typing import TYPE_CHECKING
@@ -40,14 +40,14 @@ def _li_vec(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
 
     Parameters
     ----------
-    gy : (M, N) NDArray[floating]
+    gy : NDArray[floating] (M, N)
         Vertical gradient.
-    gx : (M, N) NDArray[floating]
+    gx : NDArray[floating] (M, N)
         Horizontal gradient.
 
     Returns
     -------
-    (2MN - (M+N)) NDArray[floating]
+    NDArray[floating] (2 * M * N - (M + N))
         Vector of size 2MN - (M+N), solve with sparse matrix for given image shape.
 
     """
@@ -178,23 +178,28 @@ def _li_factorized_mt(
 
 
 def li(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
-    """Perform normal integration using the method of Li et al.
+    """Perform normal integration using the method of Li et al[^1].
 
-    Li, G., Li, Y., Liu, K., Ma, X. & Wang, H. Improving wavefront reconstruction
+    !!! note "Check [the table][integration-classes-table] \
+        for compatible array libraries"
+
+    !!! example "[Example][li-example]"
+
+    [^1]:[Li, G., Li, Y., Liu, K., Ma, X. & Wang, H. Improving wavefront reconstruction
     accuracy by using integration equations with higher-order truncation errors in the
-    Southwell geometry. J. Opt. Soc. Am. A 30, 1448-1459.
-    https://opg.optica.org/josaa/abstract.cfm?URI=josaa-30-7-1448 (July 2013).
+    Southwell geometry. J. Opt. Soc. Am. A 30, 1448-1459.(July 2013).](
+    https://doi.org/10.1364/JOSAA.30.001448)
 
     Parameters
     ----------
-    gy : (M, N) NDArray[floating]
+    gy : NDArray[floating] (M, N)
         Vertical gradient.
-    gx : (M, N) NDArray[floating]
+    gx : NDArray[floating] (M, N)
         Horizontal gradient.
 
     Returns
     -------
-    (M, N) NDArray[floating]
+    NDArray[floating] (M, N)
         Normal field.
 
     """
@@ -215,12 +220,16 @@ def li(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
 
 
 class Li(BaseSparseNormalIntegration):
-    """Perform normal integration using the method of Li et al.
+    """Perform normal integration using the method of Li et al[^1].
 
-    Li, G., Li, Y., Liu, K., Ma, X. & Wang, H. Improving wavefront reconstruction
+    !!! note "Check [the table][normal-integration] for compatible array libraries"
+
+    !!! example "[Example][Li-example]"
+
+    [^1]:[Li, G., Li, Y., Liu, K., Ma, X. & Wang, H. Improving wavefront reconstruction
     accuracy by using integration equations with higher-order truncation errors in the
-    Southwell geometry. J. Opt. Soc. Am. A 30, 1448-1459.
-    https://opg.optica.org/josaa/abstract.cfm?URI=josaa-30-7-1448 (July 2013).
+    Southwell geometry. J. Opt. Soc. Am. A 30, 1448-1459.(July 2013).](
+    https://doi.org/10.1364/JOSAA.30.001448)
     """
 
     @staticmethod
