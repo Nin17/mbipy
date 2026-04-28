@@ -13,27 +13,17 @@ __all__ = ["frankot"]
 from typing import TYPE_CHECKING, Literal
 
 from mbipy.normal_integration._utils import check_shapes
-from mbipy.src.utils import (
-    array_namespace,
-    astype,
-    get_dtypes,
-    idiv,
-    imul,
-    setitem,
-)
+from mbipy.src.utils import array_namespace, astype, get_dtypes, idiv, imul, setitem
 
 from ._padding import antisymmetric
-from ._utils import (
-    FFTMethod,
-    fft_2d,
-    ifft_2d,
-    irfft_2d,
-    rfft_2d,
-)
+from ._utils import FFTMethod, fft_2d, ifft_2d, irfft_2d, rfft_2d
 
 if TYPE_CHECKING:
     from numpy import floating
     from numpy.typing import NDArray
+
+# TODO(nin17): remove astype, use dtype kwarg instead
+# TODO(nin17): use at.set etc...
 
 
 def frankot(

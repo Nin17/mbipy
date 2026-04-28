@@ -20,13 +20,6 @@ import numpy as np
 from numba import extending, types
 from numba.core import errors
 
-# from mbipy.normal_integration.fourier import (
-#     arnison,
-#     dct_poisson,
-#     dst_poisson,
-#     frankot,
-#     kottler,
-# )
 from mbipy.src.config import config as cfg
 
 from ._arnison import arnison
@@ -34,8 +27,6 @@ from ._dct import dct_poisson
 from ._dst import dst_poisson
 from ._frankot import frankot
 from ._kottler import kottler
-
-# from . import arnison, dct_poisson, dst_poisson, frankot, kottler
 from ._padding import antisymmetric, flip
 from ._utils import (
     dct2_2d,

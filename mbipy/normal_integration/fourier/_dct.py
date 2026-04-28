@@ -29,6 +29,9 @@ if TYPE_CHECKING:
     from numpy import floating
     from numpy.typing import NDArray
 
+# TODO(nin17): remove astype, use dtype kwarg instead
+# TODO(nin17): use at.set etc...
+
 
 def dct_poisson(
     gy: NDArray[floating],
