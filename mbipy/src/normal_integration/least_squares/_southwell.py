@@ -24,8 +24,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from types import ModuleType
 
-    from numpy import floating
-    from numpy.typing import DTypeLike, NDArray
+    from numpy import dtype, floating, integer
+    from numpy.typing import NDArray
 
     from mbipy.src.config import config as cfg
 
@@ -70,8 +70,8 @@ def _southwell_vec(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floa
 def _southwell_matrix(
     shape: tuple[int, int],
     xp: ModuleType,
-    idtype: DTypeLike,
-    fdtype: DTypeLike,
+    idtype: dtype[integer],
+    fdtype: dtype[floating],
 ) -> spmatrix:
     i, j = shape
     n = i * j
@@ -105,8 +105,8 @@ def _southwell_matrix(
 def _southwell_factorized_mt(
     shape: tuple[int, int],
     xp: ModuleType,
-    idtype: DTypeLike,
-    fdtype: DTypeLike,
+    idtype: dtype[integer],
+    fdtype: dtype[floating],
 ) -> tuple[Callable[[NDArray], NDArray], spmatrix]:
     m = _southwell_matrix(shape, xp, idtype, fdtype)
     mt = m.T
@@ -169,8 +169,8 @@ class Southwell(BaseSparseNormalIntegration):
     def _factorized_mt_func(
         shape: tuple[int, int],
         xp: ModuleType,
-        idtype: DTypeLike,
-        fdtype: DTypeLike,
+        idtype: dtype[integer],
+        fdtype: dtype[floating],
     ) -> tuple[Callable[[NDArray], NDArray], spmatrix]:
         return _southwell_factorized_mt(shape, xp, idtype, fdtype)
 
