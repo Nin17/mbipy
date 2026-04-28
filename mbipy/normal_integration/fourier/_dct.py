@@ -12,8 +12,7 @@ __all__ = ["dct_poisson"]
 
 from typing import TYPE_CHECKING
 
-from mbipy.src.normal_integration.fourier.utils import dct2_2d, idct2_2d
-from mbipy.src.normal_integration.utils import check_shapes
+from mbipy.normal_integration._utils import check_shapes
 from mbipy.src.utils import (
     array_namespace,
     astype,
@@ -23,6 +22,8 @@ from mbipy.src.utils import (
     isub,
     setitem,
 )
+
+from ._utils import dct2_2d, idct2_2d
 
 if TYPE_CHECKING:
     from numpy import floating

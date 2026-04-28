@@ -2,4 +2,4 @@
 
 from __future__ import annotations
 
-# TODO(nin17): numba overload of superlu, then li/Li & southwell/Southwell
+# TODO(nin17): numba overload of superlu/superlu_mt, then li/Li & southwell/Southwell

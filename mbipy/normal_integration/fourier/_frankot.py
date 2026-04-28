@@ -12,15 +12,7 @@ __all__ = ["frankot"]
 
 from typing import TYPE_CHECKING, Literal
 
-from mbipy.src.normal_integration.fourier.padding import antisymmetric
-from mbipy.src.normal_integration.fourier.utils import (
-    FFTMethod,
-    fft_2d,
-    ifft_2d,
-    irfft_2d,
-    rfft_2d,
-)
-from mbipy.src.normal_integration.utils import check_shapes
+from mbipy.normal_integration._utils import check_shapes
 from mbipy.src.utils import (
     array_namespace,
     astype,
@@ -28,6 +20,15 @@ from mbipy.src.utils import (
     idiv,
     imul,
     setitem,
+)
+
+from ._padding import antisymmetric
+from ._utils import (
+    FFTMethod,
+    fft_2d,
+    ifft_2d,
+    irfft_2d,
+    rfft_2d,
 )
 
 if TYPE_CHECKING:

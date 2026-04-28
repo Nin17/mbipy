@@ -6,7 +6,7 @@ __all__ = ["antisymmetric"]
 
 from typing import TYPE_CHECKING
 
-from mbipy.src.normal_integration.utils import check_shapes
+from mbipy.normal_integration._utils import check_shapes
 from mbipy.src.utils import array_namespace, setitem
 
 if TYPE_CHECKING:

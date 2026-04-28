@@ -15,12 +15,9 @@ from typing import TYPE_CHECKING
 
 from numpy import broadcast_shapes
 
-from mbipy.src.normal_integration.least_squares.utils import (
-    BaseSparseNormalIntegration,
-    csr_matrix,
-    factorized,
-)
 from mbipy.src.utils import array_namespace, get_dtypes
+
+from ._utils import BaseSparseNormalIntegration, csr_matrix, factorized
 
 if TYPE_CHECKING:
     from collections.abc import Callable

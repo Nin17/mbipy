@@ -4,6 +4,6 @@ from __future__ import annotations
 
 from numba import extending
 
-from .utils import check_shapes
+from ._utils import check_shapes
 
 extending.register_jitable(check_shapes)

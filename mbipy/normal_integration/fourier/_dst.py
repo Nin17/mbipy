@@ -15,8 +15,7 @@ from typing import TYPE_CHECKING
 
 from numpy import broadcast_shapes
 
-from mbipy.src.normal_integration.fourier.utils import dst1_2d, idst1_2d
-from mbipy.src.normal_integration.utils import check_shapes
+from mbipy.normal_integration._utils import check_shapes
 from mbipy.src.utils import (
     array_namespace,
     astype,
@@ -26,6 +25,8 @@ from mbipy.src.utils import (
     isub,
     setitem,
 )
+
+from ._utils import dst1_2d, idst1_2d
 
 if TYPE_CHECKING:
     from numpy import floating

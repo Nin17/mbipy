@@ -7,10 +7,7 @@ __all__ = ["BaseSparseNormalIntegration", "csr_matrix", "factorized"]
 import importlib
 from typing import TYPE_CHECKING
 
-from array_api_compat import (
-    array_namespace,
-    is_cupy_namespace,
-)
+from array_api_compat import array_namespace, is_cupy_namespace
 from numpy import broadcast_shapes
 
 if TYPE_CHECKING:
