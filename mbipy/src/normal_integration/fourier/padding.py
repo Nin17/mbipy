@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__all__ = ("antisymmetric",)
+__all__ = ["antisymmetric"]
 
 from typing import TYPE_CHECKING
 
@@ -10,8 +10,13 @@ from mbipy.src.normal_integration.utils import check_shapes
 from mbipy.src.utils import array_namespace, setitem
 
 if TYPE_CHECKING:
-    from numpy import floating
+    from numpy import number
     from numpy.typing import NDArray
+
+
+# ??? redo padding do it edge value - values like in numpy rather than just - values
+# ??? possibly better for large values etc...
+# TODO(nin17): use xpx.at
 
 
 def flip(a: NDArray, axis: int | tuple[int, ...] | None = None) -> NDArray:
@@ -23,7 +28,7 @@ def flip(a: NDArray, axis: int | tuple[int, ...] | None = None) -> NDArray:
         Input array.
     axis : int | tuple[int, ...] | None, optional
         The axis or axes along which to flip. If `axis` is `None`, flip along all axes,
-        by default None
+        by default `None`
 
     Returns
     -------
@@ -37,21 +42,30 @@ def flip(a: NDArray, axis: int | tuple[int, ...] | None = None) -> NDArray:
 
 
 def antisymmetric(
-    gy: NDArray[floating],
-    gx: NDArray[floating],
-) -> tuple[NDArray[floating], NDArray[floating]]:
-    """Antisymmetric padding of the input gradients.
+    gy: NDArray[number],
+    gx: NDArray[number],
+) -> tuple[NDArray[number], NDArray[number]]:
+    """Antisymmetric padding of the input gradients[^1].
+
+    !!! note "Check [the table][padding-functions-table] \
+        for compatible array libraries"
+
+    !!! example "[Example][antisymmetric-example]"
+
+    [^1]:[P. Bon, S. Monneret, and B. Wattellier, “Noniterative boundary-artifact-free
+    wavefront reconstruction from its derivatives,” Appl. Opt., vol. 51, no. 23,
+    pp. 5698-5704, Aug. 2012. DOI: 10.1364/AO.51.005698.](https://doi.org/10.1364/AO.51.005698)
 
     Parameters
     ----------
-    gy : (..., M, N) NDArray[floating]
+    gy : NDArray[number] (..., M, N)
         Vertical gradient(s).
-    gx : (..., M, N) NDArray[floating]
+    gx : NDArray[number] (..., M, N)
         Horizontal gradient(s).
 
     Returns
     -------
-    tuple[(..., 2M, 2N) NDArray[floating], (..., 2M, 2N) NDArray[floating]]
+    tuple[NDArray[number] (..., 2*M, 2*N), NDArray[number] (..., 2*M, 2*N)]
         Vertical and horizontal gradients with antisymmetric padding.
 
     """
@@ -90,21 +104,26 @@ def antisymmetric(
 
 
 def _antireflect(
-    gy: NDArray[floating],
-    gx: NDArray[floating],
-) -> tuple[NDArray[floating], NDArray[floating]]:
+    gy: NDArray[number],
+    gx: NDArray[number],
+) -> tuple[NDArray[number], NDArray[number]]:
     """Antireflect padding of the input gradients.
+
+    !!! warning "Not in the public API - use at your own risk!"
+
+    !!! warning "Gives worse results than \
+        [antisymmetric][mbipy.normal_integration.padding.antisymmetric]."
 
     Parameters
     ----------
-    gy : (..., M, N) NDArray[floating]
+    gy : NDArray[number] (..., M, N)
         Vertical gradient(s).
-    gx : (..., M, N) NDArray[floating]
+    gx : NDArray[number] (..., M, N)
         Horizontal gradient(s).
 
     Returns
     -------
-    tuple[(..., 2M-1, 2N-1) NDArray[floating], (..., 2M-1, 2N-1) NDArray[floating]]
+    tuple[NDArray[number] (..., 2*M-1, 2*N-1), NDArray[number] (..., 2*M-1, 2*N-1)]
         Vertical and horizontal gradients with antireflect padding.
     """
     # !!! gives worse results than antisymmetric - not currently used
