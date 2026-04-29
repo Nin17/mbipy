@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
     from mbipy.src.config import config as cfg
 
-    if cfg.have_scipy:
+    if cfg._have_scipy:
         from scipy.sparse import spmatrix
 
 
