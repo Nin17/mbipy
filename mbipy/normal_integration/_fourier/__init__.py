@@ -4,8 +4,6 @@
 from mbipy.normal_integration import fourier
 ```
 
-!!! info "All attributes are also available in the main \
-    [mbipy.normal_integration][] namespace."
 """
 
 __all__ = ["arnison", "dct_poisson", "dst_poisson", "frankot", "kottler"]
