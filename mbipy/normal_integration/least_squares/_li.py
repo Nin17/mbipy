@@ -13,7 +13,7 @@ __all__ = ["Li", "li"]
 import functools
 from typing import TYPE_CHECKING
 
-from numpy import broadcast_shapes
+from numpy import broadcast_shapes  # TODO(nin17): remove - added to the standard
 
 from mbipy.src.utils import array_namespace, get_dtypes
 
@@ -177,8 +177,9 @@ def _li_factorized_mt(
 def li(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
     """Perform normal integration using the method of Li et al[^1].
 
-    !!! note "Check [the table][integration-classes-table] \
-        for compatible array libraries"
+    === "Array API Compatibility"
+
+    {{ Integration.li | indent(4) }}
 
     !!! example "[Example][li-example]"
 
@@ -219,7 +220,9 @@ def li(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
 class Li(BaseSparseNormalIntegration):
     """Perform normal integration using the method of Li et al[^1].
 
-    !!! note "Check [the table][normal-integration] for compatible array libraries"
+    === "Array API Compatibility"
+
+    {{ Integration.Li | indent(4) }}
 
     !!! example "[Example][Li-example]"
 

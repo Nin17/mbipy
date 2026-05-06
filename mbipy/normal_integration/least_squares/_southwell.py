@@ -11,7 +11,7 @@ __all__ = ["Southwell", "southwell"]
 import functools
 from typing import TYPE_CHECKING
 
-from numpy import broadcast_shapes
+from numpy import broadcast_shapes  # TODO(nin17): remove - added to the standard
 
 from mbipy.src.utils import array_namespace, get_dtypes
 
@@ -113,8 +113,9 @@ def _southwell_factorized_mt(
 def southwell(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
     """Perform normal integration using the method of Southwell[^1].
 
-    !!! note "Check [the table][integration-functions-table] \
-        for compatible array libraries"
+    === "Array API Compatibility"
+
+    {{ Integration.southwell | indent(4) }}
 
     !!! example "[Example][southwell-example]"
 
@@ -153,8 +154,9 @@ def southwell(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]
 class Southwell(BaseSparseNormalIntegration):
     """Perform normal integration using the method of Southwell[^1].
 
-    !!! note "Check [the table][integration-classes-table] \
-        for compatible array libraries"
+    === "Array API Compatibility"
+
+    {{ Integration.Southwell | indent(4) }}
 
     !!! example "[Example][Southwell-example]"
 
