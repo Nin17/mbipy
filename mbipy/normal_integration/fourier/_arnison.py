@@ -33,8 +33,9 @@ def arnison(
 ) -> NDArray[floating]:
     """Perform normal integration using the method of Arnison et al[^1].
 
-    !!! note "Check [the table][integration-functions-table] \
-        for compatible array libraries"
+    === "Array API Compatibility"
+
+    {{ Integration.arnison | indent(4) }}
 
     !!! example "[Example][arnison-example]"
 

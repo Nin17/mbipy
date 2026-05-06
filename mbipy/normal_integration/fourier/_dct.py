@@ -41,8 +41,9 @@ def dct_poisson(
     # TODO(nin17): reference + doi link
     """Perform normal integration using the DCT solution to the poisson equation.
 
-    !!! note "Check [the table][integration-functions-table] \
-        for compatible array libraries"
+    === "Array API Compatibility"
+
+    {{ Integration.dct_poisson | indent(4) }}
 
     !!! example "[Example][dct_poisson-example]"
 

@@ -47,8 +47,9 @@ def antisymmetric(
 ) -> tuple[NDArray[number], NDArray[number]]:
     """Antisymmetric padding of the input gradients[^1].
 
-    !!! note "Check [the table][padding-functions-table] \
-        for compatible array libraries"
+    === "Array API Compatibility"
+
+    {{ Integration.antisym | indent(4) }}
 
     !!! example "[Example][antisymmetric-example]"
 
@@ -99,6 +100,8 @@ def antisymmetric(
     as_gy = setitem(as_gy, (..., _sy, sx_), flip(gy, axis=-1))
     # Equivalent to: as_gy[..., y:, x:] = gy_neg[..., ::-1, ::-1]
     as_gy = setitem(as_gy, (..., sy_, sx_), flip(gy_neg, axis=(-2, -1)))
+
+    as_gy, as_gx = as_gx, as_gy
 
     return as_gy, as_gx
 

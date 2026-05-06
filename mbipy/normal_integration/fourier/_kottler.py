@@ -34,8 +34,9 @@ def kottler(
 ) -> NDArray[floating]:
     """Perform normal integration using the method of Kottler et al[^1].
 
-    !!! note "Check [the table][integration-functions-table] \
-        for compatible array libraries"
+    === "Array API Compatibility"
+
+    {{ Integration.kottler | indent(4) }}
 
     !!! example "[Example][kottler-example]"
 

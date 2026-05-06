@@ -35,8 +35,9 @@ def frankot(
 ) -> NDArray[floating]:
     """Perform normal integration using the method of Frankot and Chellappa[^1].
 
-    !!! note "Check [the table][integration-functions-table] \
-        for compatible array libraries"
+    === "Array API Compatibility"
+
+    {{ Integration.frankot | indent(4) }}
 
     !!! example "[Example][frankot-example]"
 

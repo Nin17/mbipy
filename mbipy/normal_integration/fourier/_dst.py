@@ -13,7 +13,7 @@ __all__ = ["dst_poisson"]
 
 from typing import TYPE_CHECKING
 
-from numpy import broadcast_shapes
+from numpy import broadcast_shapes  # TODO(nin17): Remove - added to the standard
 
 from mbipy.normal_integration._utils import check_shapes
 from mbipy.src.utils import (
@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 # TODO(nin17): remove astype, use dtype kwarg instead
 # TODO(nin17): use at.set etc...
 
+
 def dst_poisson(
     gy: NDArray[floating],
     gx: NDArray[floating],
@@ -44,8 +45,9 @@ def dst_poisson(
     # TODO(nin17): reference + doi link
     """Perform normal integration using the DST solution to the poisson equation.
 
-    !!! note "Check [the table][integration-functions-table] \
-        for compatible array libraries"
+    === "Array API Compatibility"
+
+    {{ Integration.dst_poisson | indent(4) }}
 
     !!! example "[Example][dst_poisson-example]"
 
