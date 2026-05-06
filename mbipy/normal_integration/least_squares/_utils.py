@@ -8,7 +8,7 @@ import importlib
 from typing import TYPE_CHECKING
 
 from array_api_compat import array_namespace, is_cupy_namespace
-from numpy import broadcast_shapes
+from numpy import broadcast_shapes  # TODO(nin17): remove - added to the standard
 
 if TYPE_CHECKING:
 
@@ -181,4 +181,4 @@ class BaseSparseNormalIntegration:
             Normal field.
 
         """
-        return self.__call__(self, gy, gx)
+        return self.__call__(gy, gx)
