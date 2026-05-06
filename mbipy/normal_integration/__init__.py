@@ -23,6 +23,6 @@ __all__ = [
 ]
 
 from . import padding
-from .fourier import arnison, dct_poisson, dst_poisson, frankot, kottler
-from .fourier._utils import FFTMethod
+from ._fourier import arnison, dct_poisson, dst_poisson, frankot, kottler
+from ._fourier._utils import FFTMethod
 from .least_squares import Li, Southwell, li, southwell
