@@ -13,7 +13,7 @@ from array_api_compat import (
     is_numpy_namespace,
     is_torch_namespace,
 )
-from numpy.lib.array_utils import normalize_axis_index
+from numpy.lib.array_utils import normalize_axis_index  # TODO(nin17): implement myself
 
 from mbipy.src.config import config as cfg  # ??? where to import from - want in docs
 from mbipy.src.utils import array_namespace, idiv
@@ -21,6 +21,23 @@ from mbipy.src.utils import array_namespace, idiv
 if TYPE_CHECKING:
     from numpy import complexfloating, floating
     from numpy.typing import NDArray
+
+
+class AxisError(ValueError, IndexError):
+    __slots__ = ("axis", "ndim")
+
+    def __init__(self, axis: int, ndim: int) -> None:
+        self.axis = axis
+        self.ndim = ndim
+
+    def __str__(self) -> str:
+        return f"axis {self.axis} is out of bounds for array of dimension {self.ndim}"
+
+
+def _normalize_axis_index(axis: int, ndim: int) -> int:
+    if axis < -ndim or axis >= ndim:
+        raise AxisError(axis, ndim)
+    return axis % ndim
 
 
 def _check_s(s: tuple[int, int]) -> None:
@@ -33,7 +50,7 @@ def _check_s(s: tuple[int, int]) -> None:
         raise ValueError(msg)
 
 
-def _contiguous(x: NDArray) -> NDArray:
+def _contiguous(x: NDArray) -> NDArray:  # TODO(nin17): not compatible with standard
     xp = array_namespace(x)
     if not (x.flags.c_contiguous or x.flags.f_contiguous):
         x = xp.ascontiguousarray(x)
@@ -446,10 +463,10 @@ class FFTMethod(Enum):
     """
 
     FFT = "fft"
-    """Fast Fourier Transform: [numpy.fft.fft2][]"""
+    """Fast Fourier Transform: [numpy.fft.fft2][] or equivalent."""
     RFFT = "rfft"
     """
-    Real Fast Fourier Transform: [numpy.fft.rfft2][]
+    Real Fast Fourier Transform: [numpy.fft.rfft2][] or equivalent.
 
     !!! info "Reduces memory usage for real arrays."
     """
