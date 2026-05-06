@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from numpy import broadcast_shapes
+from numpy import broadcast_shapes  # TODO(nin17): remove - added to the standard
 
 if TYPE_CHECKING:
 
