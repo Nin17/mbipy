@@ -1,10 +1,4 @@
-"""Normal integration using Fourier methods.
-
-```python
-from mbipy.normal_integration import fourier
-```
-
-"""
+"""Normal integration using Fourier methods."""
 
 __all__ = ["arnison", "dct_poisson", "dst_poisson", "frankot", "kottler"]
 

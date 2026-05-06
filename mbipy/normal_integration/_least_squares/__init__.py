@@ -1,10 +1,4 @@
-"""Normal integration using sparse least squares methods.
-
-```python
-from mbipy.normal_integration import least_squares
-```
-
-"""
+"""Normal integration using sparse least squares methods."""
 
 __all__ = ["Li", "Southwell", "li", "southwell"]
 
