@@ -47,7 +47,7 @@ def dst_poisson(
 
     === "Array API Compatibility"
 
-    {{ Integration.dst_poisson | indent(4) }}
+        {{ NormalIntegration.row("dst_poisson") | indent(4) }}
 
     !!! example "[Example][dst_poisson-example]"
 

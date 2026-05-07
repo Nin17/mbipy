@@ -37,7 +37,7 @@ def frankot(
 
     === "Array API Compatibility"
 
-    {{ Integration.frankot | indent(4) }}
+        {{ NormalIntegration.row("frankot") | indent(4) }}
 
     !!! example "[Example][frankot-example]"
 

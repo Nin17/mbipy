@@ -179,7 +179,7 @@ def li(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
 
     === "Array API Compatibility"
 
-    {{ Integration.li | indent(4) }}
+        {{ NormalIntegration.row("li") | indent(4) }}
 
     !!! example "[Example][li-example]"
 
@@ -222,7 +222,7 @@ class Li(BaseSparseNormalIntegration):
 
     === "Array API Compatibility"
 
-    {{ Integration.Li | indent(4) }}
+        {{ NormalIntegration.row("Li") | indent(4) }}
 
     !!! example "[Example][Li-example]"
 

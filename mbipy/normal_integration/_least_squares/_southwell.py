@@ -115,7 +115,7 @@ def southwell(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]
 
     === "Array API Compatibility"
 
-    {{ Integration.southwell | indent(4) }}
+        {{ NormalIntegration.row("southwell") | indent(4) }}
 
     !!! example "[Example][southwell-example]"
 
@@ -156,7 +156,7 @@ class Southwell(BaseSparseNormalIntegration):
 
     === "Array API Compatibility"
 
-    {{ Integration.Southwell | indent(4) }}
+        {{ NormalIntegration.row("Southwell") | indent(4) }}
 
     !!! example "[Example][Southwell-example]"
 

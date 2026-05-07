@@ -49,7 +49,7 @@ def antisymmetric(
 
     === "Array API Compatibility"
 
-    {{ Integration.antisym | indent(4) }}
+        {{ NormalIntegrationPadding.row("antisymmetric") | indent(4) }}
 
     !!! example "[Example][antisymmetric-example]"
 

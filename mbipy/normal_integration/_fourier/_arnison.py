@@ -35,7 +35,7 @@ def arnison(
 
     === "Array API Compatibility"
 
-    {{ Integration.arnison | indent(4) }}
+        {{ NormalIntegration.row("arnison") | indent(4) }}
 
     !!! example "[Example][arnison-example]"
 

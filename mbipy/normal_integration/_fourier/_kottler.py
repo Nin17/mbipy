@@ -36,7 +36,7 @@ def kottler(
 
     === "Array API Compatibility"
 
-    {{ Integration.kottler | indent(4) }}
+        {{ NormalIntegration.row("kottler") | indent(4) }}
 
     !!! example "[Example][kottler-example]"
 
