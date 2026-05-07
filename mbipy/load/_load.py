@@ -9,8 +9,6 @@ from itertools import chain
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from numpy import stack
-
 if TYPE_CHECKING:
 
     from os import PathLike
@@ -54,7 +52,7 @@ def load_paths(
     frame: int | None = None,
     axis: int | None = None,
     out: NDArray | None = None,
-    dtype: None = None,
+    dtype: DTypeLike | None = None,
 ) -> list[NDArray] | NDArray:
     """Load images from paths.
 
@@ -91,6 +89,7 @@ def load_paths(
     images = [load_data(i, frame=frame) for i in paths]
     if axis is None:
         return images
+    stack = import_module("numpy").stack
     return stack(images, axis=axis, out=out, dtype=dtype)
 
 
