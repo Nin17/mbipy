@@ -12,7 +12,7 @@ __all__ = ["frankot"]
 
 from typing import TYPE_CHECKING, Literal
 
-from mbipy.src.utils import array_namespace, astype, get_dtypes, idiv, imul, setitem
+from mbipy.src.utils import array_namespace, astype, at, get_dtypes
 
 from ._padding import antisymmetric
 from ._utils import FFTMethod, fft_2d, ifft_2d, irfft_2d, rfft_2d
@@ -22,7 +22,6 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 # TODO(nin17): remove astype, use dtype kwarg instead
-# TODO(nin17): use at.set etc...
 
 
 def frankot(
@@ -107,27 +106,27 @@ def frankot(
     fx = astype(fx, dtype)
     fy = astype(xp.fft.fftfreq(y2)[:, None], dtype)
 
-    gx_fft = imul(gx_fft, ..., fx)
-    gy_fft = imul(gy_fft, ..., fy)
+    gx_fft = at(gx_fft)[:].multiply(fx)
+    gy_fft = at(gy_fft)[:].multiply(fy)
     f_num = gx_fft + gy_fft
 
-    fx = imul(fx, ..., fx)
-    fy = imul(fy, ..., fy)
+    fx = at(fx)[:].multiply(fx)
+    fy = at(fy)[:].multiply(fy)
     fx = astype(fx, cdtype)
     fy = astype(fy, cdtype)
-    fx = imul(fx, ..., 2.0j * xp.pi)
-    fy = imul(fy, ..., 2.0j * xp.pi)
+    fx = at(fx)[:].multiply(2.0j * xp.pi)
+    fy = at(fy)[:].multiply(2.0j * xp.pi)
     f_den = fx + fy
 
-    f_den = setitem(f_den, (..., 0, 0), 1.0)  # avoid division by zero warning
-    frac = idiv(f_num, ..., f_den)  # f_num is frac
-    frac = setitem(frac, (..., 0, 0), 0.0)
+    f_den = at(f_den)[..., 0, 0].set(1.0)  # avoid division by zero warning
+    f_num = at(f_num)[:].divide(f_den)
+    f_num = at(f_num)[..., 0, 0].set(0.0)
 
     match fft_method:
         case FFTMethod.FFT:
-            return xp.real(ifft_2d(frac, workers=workers)[..., :y, :x])
+            return xp.real(ifft_2d(f_num, workers=workers)[..., :y, :x])
         case FFTMethod.RFFT:
-            return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]
+            return irfft_2d(f_num, s=s, workers=workers)[..., :y, :x]
         case _:
             msg = f"Invalid value for fft_method: {fft_method}"
             raise ValueError(msg)

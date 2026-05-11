@@ -11,7 +11,7 @@ __all__ = ["kottler"]
 
 from typing import TYPE_CHECKING, Literal
 
-from mbipy.src.utils import array_namespace, astype, get_dtypes, idiv, imul, setitem
+from mbipy.src.utils import array_namespace, astype, at, get_dtypes
 
 from ._padding import antisymmetric
 from ._utils import FFTMethod, fft_2d, ifft_2d, irfft_2d, rfft_2d
@@ -21,7 +21,6 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 # TODO(nin17): remove astype, use dtype kwarg instead
-# TODO(nin17): use at.set etc...
 
 
 def kottler(
@@ -93,7 +92,7 @@ def kottler(
         case FFTMethod.FFT:
             fx = xp.fft.fftfreq(x2)
             gyc = astype(gy, cdtype, copy=True)
-            gyc = imul(gyc, ..., 1.0j)  # Equivalent to gyc *= 1.0j
+            gyc = at(gyc)[:].multiply(1.0j)
             operand = gx + gyc
             f_num = fft_2d(operand, workers=workers)
         case FFTMethod.RFFT:
@@ -101,7 +100,7 @@ def kottler(
             s = (y2, x2)
             gxfft = rfft_2d(gx, s=s, workers=workers)
             gyfft = rfft_2d(gy, s=s, workers=workers)
-            gyfft = imul(gyfft, ..., 1.0j)  # Equivalent to gyfft *= 1.0j
+            gyfft = at(gyfft)[:].multiply(1.0j)
             f_num = gxfft + gyfft
         case _:
             msg = f"Invalid value for fft_method: {fft_method}"
@@ -109,18 +108,18 @@ def kottler(
 
     fx = astype(fx, cdtype)
     fy = astype(xp.fft.fftfreq(y2)[:, None], dtype)
-    fx = imul(fx, ..., 2.0j * xp.pi)  # Equivalent to fx *= 2.0j*xp.pi
-    fy = imul(fy, ..., -2.0 * xp.pi)  # Equivalent to fy *= -2.0*xp.pi
+    fx = at(fx)[:].multiply(2.0j * xp.pi)
+    fy = at(fy)[:].multiply(-2.0 * xp.pi)
     denom = fx + fy
-    denom = setitem(denom, (..., 0, 0), 1.0)  # avoid division by zero warning
-    frac = idiv(f_num, ..., denom)  # f_num is frac
-    frac = setitem(frac, (..., 0, 0), 0.0)
+    denom = at(denom)[..., 0, 0].set(1.0)  # avoid division by zero warning
+    f_num = at(f_num)[:].divide(denom)
+    f_num = at(f_num)[..., 0, 0].set(0.0)
 
     match fft_method:
         case FFTMethod.FFT:
-            return xp.real(ifft_2d(frac, workers=workers)[..., :y, :x])
+            return xp.real(ifft_2d(f_num, workers=workers)[..., :y, :x])
         case FFTMethod.RFFT:
-            return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]
+            return irfft_2d(f_num, s=s, workers=workers)[..., :y, :x]
         case _:
             msg = f"Invalid value for fft_method: {fft_method}"
             raise ValueError(msg)

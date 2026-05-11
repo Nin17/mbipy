@@ -13,15 +13,7 @@ __all__ = ["dst_poisson"]
 
 from typing import TYPE_CHECKING
 
-from mbipy.src.utils import (
-    array_namespace,
-    astype,
-    get_dtypes,
-    idiv,
-    imul,
-    isub,
-    setitem,
-)
+from mbipy.src.utils import array_namespace, astype, at, get_dtypes
 
 from ._utils import dst1_2d, idst1_2d
 
@@ -30,7 +22,6 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 # TODO(nin17): remove astype, use dtype kwarg instead
-# TODO(nin17): use at.set etc...
 
 
 def dst_poisson(
@@ -85,14 +76,14 @@ def dst_poisson(
     arange = xp.arange(max(sy, sx), dtype=xp.int64)
 
     indices_y = xp.empty(sy + 2, dtype=xp.int64)
-    indices_y = setitem(indices_y, 0, 0)
-    indices_y = setitem(indices_y, -1, -1)
-    indices_y = setitem(indices_y, slice(1, -1), arange[:sy])
+    indices_y = at(indices_y)[0].set(0)
+    indices_y = at(indices_y)[-1].set(0)
+    indices_y = at(indices_y)[1:-1].set(arange[:sy])
 
     indices_x = xp.empty(sx + 2, dtype=xp.int64)
-    indices_x = setitem(indices_x, 0, 0)
-    indices_x = setitem(indices_x, -1, -1)
-    indices_x = setitem(indices_x, slice(1, -1), arange[:sx])
+    indices_x = at(indices_x)[0].set(0)
+    indices_x = at(indices_x)[-1].set(-1)
+    indices_x = at(indices_x)[1:-1].set(arange[:sx])
 
     # Divergence (∇) of (gy, gx) using central differences
     qy = gy[..., indices_y[2:], :] - gy[..., indices_y[:-2], :]  # ??? do inplace
@@ -100,49 +91,42 @@ def dst_poisson(
 
     # ∇(gy, gx)
     f = qy + px
-    f = idiv(f, ..., 2.0)
+    f = at(f)[:].divide(2.0)
 
     if ub is not None:
         # Modification near the boundaries (Eq. 46 in [1])
-        s2_2 = slice(2, -2)
-        # Equivalent to: f[..., 1, 2:-2] -= ub[..., 0, 2:-2]
-        f = isub(f, (..., 1, s2_2), ub[..., 0, s2_2])
-        # Equivalent to: f[..., -2, 2:-2] -= ub[..., -1, 2:-2]
-        f = isub(f, (..., -2, s2_2), ub[..., -1, s2_2])
-        # Equivalent to: f[..., 2:-2, 1] -= ub[..., 2:-2, 0]
-        f = isub(f, (..., s2_2, 1), ub[..., s2_2, 0])
-        # Equivalent to: f[..., 2:-2, -2] -= ub[..., 2:-2, -1]
-        f = isub(f, (..., s2_2, -2), ub[..., s2_2, -1])
+        f = at(f)[..., 1, 2:-2].subtract(ub[..., 0, 2:-2])
+        f = at(f)[..., -2, 2:-2].subtract(ub[..., -1, 2:-2])
+        f = at(f)[..., 2:-2, 1].subtract(ub[..., 2:-2, 0])
+        f = at(f)[..., 2:-2, -2].subtract(ub[..., 2:-2, -1])
 
         # # Modification near the corners (Eq. 47 in [1])
-        # Equivalent to: f[..., 1, 1] -= ub[..., 1, 0] + ub[..., 0, 1]
-        f = isub(f, (..., 1, 1), ub[..., 1, 0] + ub[..., 0, 1])
-        # Equivalent to: f[..., 1, -2] -= ub[..., 1, -1] + ub[..., 0, -2]
-        f = isub(f, (..., 1, -2), ub[..., 1, -1] + ub[..., 0, -2])
-        # Equivalent to: f[..., -2, -2] -= ub[..., -2, -1] + ub[..., -1, -2]
-        f = isub(f, (..., -2, -2), ub[..., -2, -1] + ub[..., -1, -2])
-        # Equivalent to: f[..., -2, 1] -= ub[..., -2, 0] + ub[..., -1, 1]
-        f = isub(f, (..., -2, 1), ub[..., -2, 0] + ub[..., -1, 1])
+        f = at(f)[..., 1, 1].subtract(ub[..., 1, 0])
+        f = at(f)[..., 1, 1].subtract(ub[..., 0, 1])
+        f = at(f)[..., 1, -2].subtract(ub[..., 1, -1])
+        f = at(f)[..., 1, -2].subtract(ub[..., 0, -2])
+        f = at(f)[..., -2, -2].subtract(ub[..., -2, -1])
+        f = at(f)[..., -2, -2].subtract(ub[..., -1, -2])
+        f = at(f)[..., -2, 1].subtract(ub[..., -2, 0])
+        f = at(f)[..., -2, 1].subtract(ub[..., -1, 1])
 
     fsin = dst1_2d(f[..., 1:-1, 1:-1], workers=workers)
 
-    # dtype not supported in numba
+    # TODO(nin17): dtype not supported in numba
     x = astype(xp.linspace(0.0, xp.pi / 2.0, sx), dtype)[1:-1]
     y = astype(xp.linspace(0.0, xp.pi / 2.0, sy), dtype)[1:-1][:, None]
     # Faster to do * before + : x.size + y.size vs x.size * y.size multiplications
-    sinx = xp.sin(x)  # ??? do inplace
+    sinx = xp.sin(x)
     siny = xp.sin(y)
-    sinx = imul(sinx, ..., sinx)
-    siny = imul(siny, ..., siny)
-    sinx = imul(sinx, ..., -4.0)
-    siny = imul(siny, ..., -4.0)
+    sinx = at(sinx)[:].multiply(sinx)
+    siny = at(siny)[:].multiply(siny)
+    sinx = at(sinx)[:].multiply(-4.0)
+    siny = at(siny)[:].multiply(-4.0)
 
     denom = sinx + siny
-    z_bar = idiv(fsin, ..., denom)
+    fsin = at(fsin)[:].divide(denom)
     z = xp.zeros(result_shape, dtype=fsin.dtype)
     if ub is not None:
-        z = setitem(z, ..., ub)  # z[:] = ub
+        z = at(z)[:].set(ub)
 
-    s1_1 = slice(1, -1)
-    # Equivalent to: z[..., 1:-1, 1:-1] = idst1_2d(z_bar, workers=workers)
-    return setitem(z, (..., s1_1, s1_1), idst1_2d(z_bar, workers=workers))
+    return at(z)[..., 1:-1, 1:-1].set(idst1_2d(fsin, workers=workers))

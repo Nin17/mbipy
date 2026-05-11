@@ -12,15 +12,7 @@ __all__ = ["dct_poisson"]
 
 from typing import TYPE_CHECKING
 
-from mbipy.src.utils import (
-    array_namespace,
-    astype,
-    get_dtypes,
-    idiv,
-    imul,
-    isub,
-    setitem,
-)
+from mbipy.src.utils import array_namespace, astype, at, get_dtypes
 
 from ._utils import dct2_2d, idct2_2d
 
@@ -29,7 +21,6 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 # TODO(nin17): remove astype, use dtype kwarg instead
-# TODO(nin17): use at.set etc...
 
 
 def dct_poisson(
@@ -74,14 +65,14 @@ def dct_poisson(
     arange = xp.arange(max(sy, sx), dtype=xp.int64)
 
     indices_y = xp.empty(sy + 2, dtype=xp.int64)
-    indices_y = setitem(indices_y, 0, 0)
-    indices_y = setitem(indices_y, -1, -1)
-    indices_y = setitem(indices_y, slice(1, -1), arange[:sy])
+    indices_y = at(indices_y)[0].set(0)
+    indices_y = at(indices_y)[-1].set(-1)
+    indices_y = at(indices_y)[1:-1].set(arange[:sy])
 
     indices_x = xp.empty(sx + 2, dtype=xp.int64)
-    indices_x = setitem(indices_x, 0, 0)
-    indices_x = setitem(indices_x, -1, -1)
-    indices_x = setitem(indices_x, slice(1, -1), arange[:sx])
+    indices_x = at(indices_x)[0].set(0)
+    indices_x = at(indices_x)[-1].set(-1)
+    indices_x = at(indices_x)[1:-1].set(arange[:sx])
 
     # Divergence (∇) of (gy, gx) using central differences
     qy = gy[..., indices_y[2:], :] - gy[..., indices_y[:-2], :]  # ??? do inplace
@@ -89,46 +80,41 @@ def dct_poisson(
 
     # ∇(gy, gx)
     f = qy + px
-    f = idiv(f, ..., 2.0)
+    f = at(f)[:].divide(2.0)
 
     # Modification near the boundaries to enforce the non-homogeneous Neumann
     # BC (Eq. 53 in [1])
-    s1_1 = slice(1, -1)
-    # Equivalent to: f[..., 0, 1:-1] -= gy[..., 0, 1:-1]
-    f = isub(f, (..., 0, s1_1), gy[..., 0, s1_1])
-    # Equivalent to: f[..., -1, 1:-1] -= gy[..., -1, 1:-1]
-    f = isub(f, (..., -1, s1_1), gy[..., -1, s1_1])
-    # Equivalent to: f[..., 1:-1, 0] -= gx[..., 1:-1, 0]
-    f = isub(f, (..., s1_1, 0), gx[..., s1_1, 0])
-    # Equivalent to: f[..., 1:-1, -1] -= gx[..., 1:-1, -1]
-    f = isub(f, (..., s1_1, -1), gx[..., s1_1, -1])
+    f = at(f)[..., 0, 1:-1].subtract(gy[..., 0, 1:-1])
+    f = at(f)[..., -1, 1:-1].subtract(gy[..., -1, 1:-1])
+    f = at(f)[..., 1:-1, 0].subtract(gx[..., 1:-1, 0])
+    f = at(f)[..., 1:-1, -1].subtract(gx[..., 1:-1, -1])
 
     # Modification near the corners (Eq. 54 in [1])
-    # Equivalent to: f[..., 0, -1] -= -gy[..., 0, 0] - gx[..., 0, 0]
-    f = isub(f, (..., 0, -1), -gy[..., 0, 0] - gx[..., 0, 0])
-    # Equivalent to: f[..., -1, -1] -= gy[..., -1, -1] + gx[..., -1, -1]
-    f = isub(f, (..., -1, -1), gy[..., -1, -1] + gx[..., -1, -1])
-    # Equivalent to: f[..., -1, 0] -= gy[..., -1, 0] - gx[..., -1, 0]
-    f = isub(f, (..., -1, 0), gy[..., -1, 0] - gx[..., -1, 0])
-    # Equivalent to: f[..., 0, 0] -= -gy[..., 0, -1] + gx[..., 0, -1]
-    f = isub(f, (..., 0, 0), -gy[..., 0, -1] + gx[..., 0, -1])
+    f = at(f)[..., 0, -1].add(gy[..., 0, 0])
+    f = at(f)[..., 0, -1].add(gx[..., 0, 0])
+    f = at(f)[..., -1, -1].subtract(gy[..., -1, -1])
+    f = at(f)[..., -1, -1].subtract(gx[..., -1, -1])
+    f = at(f)[..., -1, 0].subtract(gy[..., -1, 0])
+    f = at(f)[..., -1, 0].add(gx[..., -1, 0])
+    f = at(f)[..., 0, 0].add(gy[..., 0, -1])
+    f = at(f)[..., 0, 0].subtract(gx[..., 0, -1])
 
     fcos = dct2_2d(f, workers=workers)
-    fcos = imul(fcos, ..., -1.0)
+    fcos = at(fcos)[:].multiply(-1.0)
 
-    # dtype not supported in numba
+    # TODO(nin17): dtype not supported in numba
     x = astype(xp.linspace(0.0, xp.pi / 2.0, sx), dtype)
     y = astype(xp.linspace(0.0, xp.pi / 2.0, sy), dtype)[:, None]
     # Faster to do * before + : x.size + y.size vs x.size * y.size multiplications
     sinx = xp.sin(x)  # ??? do inplace
     siny = xp.sin(y)
-    sinx = imul(sinx, ..., sinx)
-    siny = imul(siny, ..., siny)
-    fsinx = imul(sinx, ..., 4.0)
-    fsiny = imul(siny, ..., 4.0)
+    sinx = at(sinx)[:].multiply(sinx)
+    siny = at(siny)[:].multiply(siny)
+    fsinx = at(sinx)[:].multiply(4.0)
+    fsiny = at(siny)[:].multiply(4.0)
 
     denom = fsinx + fsiny
-    denom = setitem(denom, (0, 0), 1.0)
-    z_bar_bar = idiv(fcos, ..., denom)
+    denom = at(denom)[0, 0].set(1.0)
+    fcos = at(fcos)[:].divide(denom)
 
-    return idct2_2d(z_bar_bar, workers=workers)
+    return idct2_2d(fcos, workers=workers)

@@ -6,7 +6,7 @@ __all__ = ["antisymmetric"]
 
 from typing import TYPE_CHECKING
 
-from mbipy.src.utils import array_namespace, setitem
+from mbipy.src.utils import array_namespace, at
 
 if TYPE_CHECKING:
     from numpy import floating
@@ -15,7 +15,6 @@ if TYPE_CHECKING:
 
 # ??? redo padding do it edge value - values like in numpy rather than just - values
 # ??? possibly better for large values etc...
-# TODO(nin17): use xpx.at
 
 
 def flip(a: NDArray, axis: int | tuple[int, ...] | None = None) -> NDArray:
@@ -75,30 +74,17 @@ def antisymmetric(
     gx_neg = -gx
     gy_neg = -gy
 
-    _sy = slice(y)
-    _sx = slice(x)
-    sy_ = slice(y, None)
-    sx_ = slice(x, None)
-
     as_gx = xp.empty((*gx.shape[:-2], y * 2, x * 2), dtype=gx.dtype)
-    # Equivalent to: as_gx[..., :y, :x] = gx
-    as_gx = setitem(as_gx, (..., _sy, _sx), gx)
-    # Equivalent to: as_gx[..., y:, :x] = gx[..., ::-1, :]
-    as_gx = setitem(as_gx, (..., sy_, _sx), flip(gx, axis=-2))
-    # Equivalent to: as_gx[..., :y, x:] = gx_neg[..., ::-1]
-    as_gx = setitem(as_gx, (..., _sy, sx_), flip(gx_neg, axis=-1))
-    # Equivalent to: as_gx[..., y:, x:] = gx_neg[..., ::-1, ::-1]
-    as_gx = setitem(as_gx, (..., sy_, sx_), flip(gx_neg, axis=(-2, -1)))
+    as_gx = at(as_gx)[..., :y, :x].set(gx)
+    as_gx = at(as_gx)[..., y:, :x].set(flip(gx, axis=-2))
+    as_gx = at(as_gx)[..., :y, x:].set(flip(gx_neg, axis=-1))
+    as_gx = at(as_gx)[..., y:, x:].set(flip(gx_neg, axis=(-2, -1)))
 
     as_gy = xp.empty((*gy.shape[:-2], y * 2, x * 2), dtype=gy.dtype)
-    # Equivalent to: as_gy[..., :y, :x] = gy
-    as_gy = setitem(as_gy, (..., _sy, _sx), gy)
-    # Equivalent to: as_gy[..., y:, :x] = gy_neg[..., ::-1, :]
-    as_gy = setitem(as_gy, (..., sy_, _sx), flip(gy_neg, axis=-2))
-    # Equivalent to: as_gy[..., :y, x:] = gy[..., ::-1]
-    as_gy = setitem(as_gy, (..., _sy, sx_), flip(gy, axis=-1))
-    # Equivalent to: as_gy[..., y:, x:] = gy_neg[..., ::-1, ::-1]
-    as_gy = setitem(as_gy, (..., sy_, sx_), flip(gy_neg, axis=(-2, -1)))
+    as_gy = at(as_gy)[..., :y, :x].set(gy)
+    as_gy = at(as_gy)[..., y:, :x].set(flip(gy_neg, axis=-2))
+    as_gy = at(as_gy)[..., :y, x:].set(flip(gy, axis=-1))
+    as_gy = at(as_gy)[..., y:, x:].set(flip(gy_neg, axis=(-2, -1)))
 
     as_gy, as_gx = as_gx, as_gy
 
@@ -128,36 +114,22 @@ def _antireflect(
     tuple[NDArray[floating] (..., 2*M-1, 2*N-1), NDArray[floating] (..., 2*M-1, 2*N-1)]
         Vertical and horizontal gradients with antireflect padding.
     """
-    # !!! gives worse results than antisymmetric - not currently used
     xp = array_namespace(gy, gx)
     y, x = xp.broadcast_shapes(gy.shape, gx.shape)[-2:]
 
     gx_neg = -gx
     gy_neg = -gy
 
-    _sy = slice(y)
-    _sx = slice(x)
-    sy_ = slice(y, None)
-    sx_ = slice(x, None)
-
     ar_gx = xp.empty((*gx.shape[:-2], y * 2 - 1, x * 2 - 1), dtype=gx.dtype)
-    # Equivalent to: ar_gx[..., :y, :x] = gx
-    ar_gx = setitem(ar_gx, (..., _sy, _sx), gx)
-    # Equivalent to: ar_gx[..., y:, :x] = gx[..., -1:1:-1, :]
-    ar_gx = setitem(ar_gx, (..., sy_, _sx), flip(gx[..., :-1, :], axis=-2))
-    # Equivalent to: ar_gx[..., :y, x:] = gx_neg[..., -1:1:-1]
-    ar_gx = setitem(ar_gx, (..., _sy, sx_), flip(gx_neg[..., :-1], axis=-1))
-    # Equivalent to: ar_gx[..., y:, x:] = gx_neg[..., -1:1:-1, -1:1:-1]
-    ar_gx = setitem(ar_gx, (..., sy_, sx_), flip(gx_neg[..., :-1, :-1], axis=(-2, -1)))
+    ar_gx = at(ar_gx)[..., :y, :x].set(gx)
+    ar_gx = at(ar_gx)[..., y:, :x].set(flip(gx[..., :-1, :], axis=-2))
+    ar_gx = at(ar_gx)[..., :y, x:].set(flip(gx_neg[..., :-1], axis=-1))
+    ar_gx = at(ar_gx)[..., y:, x:].set(flip(gx_neg[..., :-1, :-1], axis=(-2, -1)))
 
     ar_gy = xp.empty((*gy.shape[:-2], y * 2 - 1, x * 2 - 1), dtype=gy.dtype)
-    # Equivalent to: ar_gy[..., :y, :x] = gy
-    ar_gy = setitem(ar_gy, (..., _sy, _sx), gy)
-    # Equivalent to: ar_gy[..., y:, :x] = gy_neg[..., -1:1:-1, :]
-    ar_gy = setitem(ar_gy, (..., sy_, _sx), flip(gy_neg[..., :-1, :], axis=-2))
-    # Equivalent to: ar_gy[..., :y, x:] = gy[..., -1:1:-1]
-    ar_gy = setitem(ar_gy, (..., _sy, sx_), flip(gy[..., :-1], axis=-1))
-    # Equivalent to: ar_gy[..., y:, x:] = gy_neg[..., -1:1:-1, -1:1:-1]
-    ar_gy = setitem(ar_gy, (..., sy_, sx_), flip(gy_neg[..., :-1, :-1], axis=(-2, -1)))
+    ar_gy = at(ar_gy)[..., :y, :x].set(gy)
+    ar_gy = at(ar_gy)[..., y:, :x].set(flip(gy_neg[..., :-1, :], axis=-2))
+    ar_gy = at(ar_gy)[..., :y, x:].set(flip(gy[..., :-1], axis=-1))
+    ar_gy = at(ar_gy)[..., y:, x:].set(flip(gy_neg[..., :-1, :-1], axis=(-2, -1)))
 
     return ar_gy, ar_gx

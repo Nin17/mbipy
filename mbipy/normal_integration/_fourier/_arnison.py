@@ -11,7 +11,7 @@ __all__ = ["arnison"]
 
 from typing import TYPE_CHECKING, Literal
 
-from mbipy.src.utils import array_namespace, astype, get_dtypes, idiv, imul, setitem
+from mbipy.src.utils import array_namespace, astype, at, get_dtypes
 
 from ._padding import antisymmetric
 from ._utils import FFTMethod, fft_2d, ifft_2d, irfft_2d, rfft_2d
@@ -21,7 +21,6 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 # TODO(nin17): remove astype, use dtype kwarg instead
-# TODO(nin17): use at.set etc...
 
 
 def arnison(
@@ -93,7 +92,7 @@ def arnison(
         case FFTMethod.FFT:
             fx = xp.fft.fftfreq(x2)
             gyc = astype(gy, cdtype, copy=True)
-            gyc = imul(gyc, ..., 1.0j)
+            gyc = at(gyc)[:].multiply(1.0j)
             operand = gx + gyc
             f_num = fft_2d(operand, workers=workers)
         case FFTMethod.RFFT:
@@ -101,7 +100,7 @@ def arnison(
             s = (y2, x2)
             gxfft2 = rfft_2d(gx, s=s, workers=workers)
             gyfft2 = rfft_2d(gy, s=s, workers=workers)
-            gyfft2 = imul(gyfft2, ..., 1.0j)
+            gyfft2 = at(gyfft2)[:].multiply(1.0j)
             f_num = gxfft2 + gyfft2
         case _:
             msg = f"Invalid value for fft_method: {fft_method}"
@@ -109,24 +108,24 @@ def arnison(
 
     fx = astype(fx, dtype)
     fy = astype(xp.fft.fftfreq(y2), dtype)
-    fx = imul(fx, ..., xp.pi)
-    fy = imul(fy, ..., xp.pi)
+    fx = at(fx)[:].multiply(xp.pi)
+    fy = at(fy)[:].multiply(xp.pi)
 
-    sinfx = astype(xp.sin(fx), cdtype)  # ??? do inplace
+    sinfx = astype(xp.sin(fx), cdtype)
     sinfy = xp.sin(fy)[:, None]
-    sinfx = imul(sinfx, ..., 2.0j)
-    sinfy = imul(sinfy, ..., -2.0)
+    sinfx = at(sinfx)[:].multiply(2.0j)
+    sinfy = at(sinfy)[:].multiply(-2.0)
 
     f_den = sinfx + sinfy
-    f_den = setitem(f_den, (..., 0, 0), 1.0)  # avoid division by zero warning
-    frac = idiv(f_num, ..., f_den)
-    frac = setitem(frac, (..., 0, 0), 0.0)
+    f_den = at(f_den)[..., 0, 0].set(1.0)  # avoid division by zero warning
+    f_num = at(f_num)[:].divide(f_den)
+    f_num = at(f_num)[..., 0, 0].set(0.0)
 
     match fft_method:
         case FFTMethod.FFT:
-            return xp.real(ifft_2d(frac, workers=workers)[..., :y, :x])
+            return xp.real(ifft_2d(f_num, workers=workers)[..., :y, :x])
         case FFTMethod.RFFT:
-            return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]
+            return irfft_2d(f_num, s=s, workers=workers)[..., :y, :x]
         case _:
             msg = f"Invalid value for fft_method: {fft_method}"
             raise ValueError(msg)
