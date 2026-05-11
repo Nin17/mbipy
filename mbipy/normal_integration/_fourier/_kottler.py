@@ -11,7 +11,6 @@ __all__ = ["kottler"]
 
 from typing import TYPE_CHECKING, Literal
 
-from mbipy.normal_integration._utils import check_shapes
 from mbipy.src.utils import array_namespace, astype, get_dtypes, idiv, imul, setitem
 
 from ._padding import antisymmetric
@@ -78,7 +77,7 @@ def kottler(
     """
     xp = array_namespace(gy, gx)
     dtype, cdtype = get_dtypes(gy, gx)
-    y, x = check_shapes(gx, gy)
+    y, x = xp.broadcast_shapes(gx.shape, gy.shape)[-2:]
     y2, x2 = 2 * y if pad else y, 2 * x if pad else x
 
     match pad:

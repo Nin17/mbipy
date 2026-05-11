@@ -13,9 +13,6 @@ __all__ = ["dst_poisson"]
 
 from typing import TYPE_CHECKING
 
-from numpy import broadcast_shapes  # TODO(nin17): Remove - added to the standard
-
-from mbipy.normal_integration._utils import check_shapes
 from mbipy.src.utils import (
     array_namespace,
     astype,
@@ -78,12 +75,12 @@ def dst_poisson(
     # doubles the array size
     xp = array_namespace(gx, gy)
     dtype, _ = get_dtypes(gy, gx)
-    sy, sx = check_shapes(gx, gy)
+    sy, sx = xp.broadcast_shapes(gx.shape, gy.shape)[-2:]
 
     if ub is not None:
-        result_shape = broadcast_shapes(gy.shape, gx.shape, ub.shape)
+        result_shape = xp.broadcast_shapes(gy.shape, gx.shape, ub.shape)
     else:
-        result_shape = broadcast_shapes(gy.shape, gx.shape)
+        result_shape = xp.broadcast_shapes(gy.shape, gx.shape)
 
     arange = xp.arange(max(sy, sx), dtype=xp.int64)
 

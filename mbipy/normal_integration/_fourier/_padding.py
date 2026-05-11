@@ -6,7 +6,6 @@ __all__ = ["antisymmetric"]
 
 from typing import TYPE_CHECKING
 
-from mbipy.normal_integration._utils import check_shapes
 from mbipy.src.utils import array_namespace, setitem
 
 if TYPE_CHECKING:
@@ -71,7 +70,7 @@ def antisymmetric(
 
     """
     xp = array_namespace(gy, gx)
-    y, x = check_shapes(gy, gx)
+    y, x = xp.broadcast_shapes(gy.shape, gx.shape)[-2:]
 
     gx_neg = -gx
     gy_neg = -gy
@@ -131,7 +130,7 @@ def _antireflect(
     """
     # !!! gives worse results than antisymmetric - not currently used
     xp = array_namespace(gy, gx)
-    y, x = check_shapes(gy, gx)
+    y, x = xp.broadcast_shapes(gy.shape, gx.shape)[-2:]
 
     gx_neg = -gx
     gy_neg = -gy

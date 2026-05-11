@@ -12,7 +12,6 @@ __all__ = ["dct_poisson"]
 
 from typing import TYPE_CHECKING
 
-from mbipy.normal_integration._utils import check_shapes
 from mbipy.src.utils import (
     array_namespace,
     astype,
@@ -70,7 +69,7 @@ def dct_poisson(
     """
     xp = array_namespace(gy, gx)
     dtype, _ = get_dtypes(gy, gx)
-    sy, sx = check_shapes(gx, gy)
+    sy, sx = xp.broadcast_shapes(gx.shape, gy.shape)[-2:]
 
     arange = xp.arange(max(sy, sx), dtype=xp.int64)
 
