@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from mbipy.src.utils import array_namespace, setitem
 
 if TYPE_CHECKING:
-    from numpy import number
+    from numpy import floating
     from numpy.typing import NDArray
 
 
@@ -41,9 +41,9 @@ def flip(a: NDArray, axis: int | tuple[int, ...] | None = None) -> NDArray:
 
 
 def antisymmetric(
-    gy: NDArray[number],
-    gx: NDArray[number],
-) -> tuple[NDArray[number], NDArray[number]]:
+    gy: NDArray[floating],
+    gx: NDArray[floating],
+) -> tuple[NDArray[floating], NDArray[floating]]:
     """Antisymmetric padding of the input gradients[^1].
 
     ??? info "Array API Compatibility"
@@ -58,14 +58,14 @@ def antisymmetric(
 
     Parameters
     ----------
-    gy : NDArray[number] (..., M, N)
+    gy : NDArray[floating] (..., M, N)
         Vertical gradient(s).
-    gx : NDArray[number] (..., M, N)
+    gx : NDArray[floating] (..., M, N)
         Horizontal gradient(s).
 
     Returns
     -------
-    tuple[NDArray[number] (..., 2*M, 2*N), NDArray[number] (..., 2*M, 2*N)]
+    tuple[NDArray[floating] (..., 2*M, 2*N), NDArray[floating] (..., 2*M, 2*N)]
         Vertical and horizontal gradients with antisymmetric padding.
 
     """
@@ -106,9 +106,9 @@ def antisymmetric(
 
 
 def _antireflect(
-    gy: NDArray[number],
-    gx: NDArray[number],
-) -> tuple[NDArray[number], NDArray[number]]:
+    gy: NDArray[floating],
+    gx: NDArray[floating],
+) -> tuple[NDArray[floating], NDArray[floating]]:
     """Antireflect padding of the input gradients.
 
     !!! warning "Not in the public API - use at your own risk!"
@@ -118,14 +118,14 @@ def _antireflect(
 
     Parameters
     ----------
-    gy : NDArray[number] (..., M, N)
+    gy : NDArray[floating] (..., M, N)
         Vertical gradient(s).
-    gx : NDArray[number] (..., M, N)
+    gx : NDArray[floating] (..., M, N)
         Horizontal gradient(s).
 
     Returns
     -------
-    tuple[NDArray[number] (..., 2*M-1, 2*N-1), NDArray[number] (..., 2*M-1, 2*N-1)]
+    tuple[NDArray[floating] (..., 2*M-1, 2*N-1), NDArray[floating] (..., 2*M-1, 2*N-1)]
         Vertical and horizontal gradients with antireflect padding.
     """
     # !!! gives worse results than antisymmetric - not currently used
