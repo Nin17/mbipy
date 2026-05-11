@@ -91,15 +91,15 @@ def frankot(
             raise ValueError(msg)
 
     match fft_method:
+        case FFTMethod.FFT:
+            fx = xp.fft.fftfreq(x2)
+            gx_fft = fft_2d(astype(gx, cdtype, copy=True), workers=workers)
+            gy_fft = fft_2d(astype(gy, cdtype, copy=True), workers=workers)
         case FFTMethod.RFFT:
             fx = xp.fft.rfftfreq(x2)
             s = (y2, x2)
             gx_fft = rfft_2d(gx, s=s, workers=workers)
             gy_fft = rfft_2d(gy, s=s, workers=workers)
-        case FFTMethod.FFT:
-            fx = xp.fft.fftfreq(x2)
-            gx_fft = fft_2d(astype(gx, cdtype, copy=True), workers=workers)
-            gy_fft = fft_2d(astype(gy, cdtype, copy=True), workers=workers)
         case _:
             msg = f"Invalid value for fft_method: {fft_method}"
             raise ValueError(msg)
@@ -124,10 +124,10 @@ def frankot(
     frac = setitem(frac, (..., 0, 0), 0.0)
 
     match fft_method:
-        case FFTMethod.RFFT:
-            return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]
         case FFTMethod.FFT:
             return xp.real(ifft_2d(frac, workers=workers)[..., :y, :x])
+        case FFTMethod.RFFT:
+            return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]
         case _:
             msg = f"Invalid value for fft_method: {fft_method}"
             raise ValueError(msg)

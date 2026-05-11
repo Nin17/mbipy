@@ -90,6 +90,12 @@ def arnison(
             raise ValueError(msg)
 
     match fft_method:
+        case FFTMethod.FFT:
+            fx = xp.fft.fftfreq(x2)
+            gyc = astype(gy, cdtype, copy=True)
+            gyc = imul(gyc, ..., 1.0j)
+            operand = gx + gyc
+            f_num = fft_2d(operand, workers=workers)
         case FFTMethod.RFFT:
             fx = xp.fft.rfftfreq(x2)
             s = (y2, x2)
@@ -97,12 +103,6 @@ def arnison(
             gyfft2 = rfft_2d(gy, s=s, workers=workers)
             gyfft2 = imul(gyfft2, ..., 1.0j)
             f_num = gxfft2 + gyfft2
-        case FFTMethod.FFT:
-            fx = xp.fft.fftfreq(x2)
-            gyc = astype(gy, cdtype, copy=True)
-            gyc = imul(gyc, ..., 1.0j)
-            operand = gx + gyc
-            f_num = fft_2d(operand, workers=workers)
         case _:
             msg = f"Invalid value for fft_method: {fft_method}"
             raise ValueError(msg)
@@ -123,10 +123,10 @@ def arnison(
     frac = setitem(frac, (..., 0, 0), 0.0)
 
     match fft_method:
-        case FFTMethod.RFFT:
-            return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]
         case FFTMethod.FFT:
             return xp.real(ifft_2d(frac, workers=workers)[..., :y, :x])
+        case FFTMethod.RFFT:
+            return irfft_2d(frac, s=s, workers=workers)[..., :y, :x]
         case _:
             msg = f"Invalid value for fft_method: {fft_method}"
             raise ValueError(msg)
