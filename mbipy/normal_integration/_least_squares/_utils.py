@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-__all__ = ["BaseSparseNormalIntegration", "csr_matrix", "factorized"]
+__all__ = ["BaseSparseNormalIntegration", "_csr_matrix", "factorized"]
 
 import importlib
 from typing import TYPE_CHECKING
 
 from array_api_compat import array_namespace, is_cupy_namespace
-from numpy import broadcast_shapes  # TODO(nin17): remove - added to the standard
 
 if TYPE_CHECKING:
 
@@ -17,19 +16,15 @@ if TYPE_CHECKING:
 
     from numpy import dtype, floating, integer
     from numpy.typing import NDArray
-
-    from mbipy.src.config import config as cfg
-
-    if cfg._have_scipy:
-        from scipy.sparse import spmatrix
+    from scipy.sparse import csc_matrix, csr_matrix
 
 
-def csr_matrix(
+def _csr_matrix(
     data: NDArray[floating],
     rows: NDArray[integer],
     cols: NDArray[integer],
     shape: tuple[int, int],
-) -> spmatrix:
+) -> csr_matrix:
     """Compressed Sparse Row Matrix.
 
     data, rows and cols satisfy the relationship a[rows[k], cols[k]] = data[k]
@@ -47,7 +42,7 @@ def csr_matrix(
 
     Returns
     -------
-    spmatrix
+    csr_matrix
         sparse matrix in Compressed Sparse Row format.
     """
     xp = array_namespace(data, rows, cols)
@@ -58,12 +53,12 @@ def csr_matrix(
     return sparse.csr_matrix((data, (rows, cols)), shape=shape)
 
 
-def factorized(a: spmatrix) -> Callable[[NDArray[floating]], NDArray[floating]]:
+def factorized(a: csc_matrix) -> Callable[[NDArray[floating]], NDArray[floating]]:
     """Return a function for solving a sparse linear system, with A pre-factorized.
 
     Parameters
     ----------
-    a : spmatrix
+    a : csc_matrix
         sparse matrix in Compressed Sparse Column format.
 
     Returns
@@ -80,6 +75,8 @@ def factorized(a: spmatrix) -> Callable[[NDArray[floating]], NDArray[floating]]:
 
 
 class BaseSparseNormalIntegration:
+    __slots__ = ("fdtype", "idtype", "shape", "xp")
+
     def __init__(
         self,
         shape: tuple[int, int],
@@ -104,17 +101,18 @@ class BaseSparseNormalIntegration:
         """
         self.shape = shape
         self.xp = xp or importlib.import_module("numpy")
-        self.idtype = idtype or self.xp.int64
-        self.fdtype = fdtype or self.xp.float64
+        idtype = idtype or self.xp.int64
+        fdtype = fdtype or self.xp.float64
+        self.idtype = idtype
+        self.fdtype = fdtype
 
         self._f, self._mt = self._factorized_mt_func(shape, self.xp, idtype, fdtype)
 
     def __repr__(self) -> str:
         """Representation of sparse normal integration classes."""
-        return (
-            f"{self.__class__.__name__}({self.shape}, xp={self.xp.__name__}, "
-            f"idtype={self.idtype.__name__}, fdtype={self.fdtype.__name__})"
-        )
+        cls = self.__class__.__name__
+        shape, xp, idtype, fdtype = (getattr(self, i) for i in self.__slots__)
+        return f"{cls}({shape=}, {xp=!r}, idtype={idtype=!r}, fdtype={fdtype=!r})"
 
     def __call__(
         self,
@@ -136,7 +134,7 @@ class BaseSparseNormalIntegration:
             Normal field.
 
         """
-        shape = broadcast_shapes(gy.shape, gx.shape)
+        shape = self.xp.broadcast_shapes(gy.shape, gx.shape)
         if shape != self.shape:
             msg = "Input arrays must have the same shape as the object."
             raise ValueError(msg)
@@ -150,7 +148,7 @@ class BaseSparseNormalIntegration:
         xp: ModuleType,
         idtype: dtype[integer],
         fdtype: dtype[floating],
-    ) -> tuple[Callable[[NDArray[floating]], NDArray[floating]], spmatrix]:
+    ) -> tuple[Callable[[NDArray[floating]], NDArray[floating]], csc_matrix]:
         """Factorization and transpose of matrix: to be implemented by subclasses."""
         msg = "Subclasses must implement _factorize_func."
         raise NotImplementedError(msg)
