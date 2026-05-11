@@ -11,8 +11,6 @@ __all__ = ["Southwell", "southwell"]
 import functools
 from typing import TYPE_CHECKING
 
-from numpy import broadcast_shapes  # TODO(nin17): remove - added to the standard
-
 from mbipy.src.utils import array_namespace, get_dtypes
 
 from ._utils import BaseSparseNormalIntegration, csr_matrix, factorized
@@ -47,7 +45,7 @@ def _southwell_vec(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floa
 
     """
     xp = array_namespace(gy, gx)
-    shape = broadcast_shapes(gy.shape, gx.shape)
+    shape = xp.broadcast_shapes(gy.shape, gx.shape)
     dtype, _ = get_dtypes(gy, gx)
     i, j = shape
     i_1 = i - 1
@@ -136,7 +134,7 @@ def southwell(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]
 
     """
     xp = array_namespace(gy, gx)
-    shape = broadcast_shapes(gy.shape, gx.shape)
+    shape = xp.broadcast_shapes(gy.shape, gx.shape)
     i, j = shape
     stop = 2 * i * j - i - j
     idtype = xp.int32 if stop < xp.iinfo(xp.int32).max else xp.int64
