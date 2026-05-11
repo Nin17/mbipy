@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from mbipy.src.utils import array_namespace, get_dtypes
 
-from ._utils import BaseSparseNormalIntegration, _csr_matrix, factorized
+from ._utils import SparseLstsqNormalIntegration, _csr_matrix, factorized
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -145,7 +145,7 @@ def southwell(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]
     return xp.reshape(xp.asarray(f(mt_vector)), shape)
 
 
-class Southwell(BaseSparseNormalIntegration):
+class Southwell(SparseLstsqNormalIntegration):
     """Perform normal integration using the method of Southwell[^1].
 
     ??? info "Array API Compatibility"

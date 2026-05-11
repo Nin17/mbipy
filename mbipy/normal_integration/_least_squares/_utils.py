@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__all__ = ["BaseSparseNormalIntegration", "_csr_matrix", "factorized"]
+__all__ = ["SparseLstsqNormalIntegration", "_csr_matrix", "factorized"]
 
 import importlib
 from typing import TYPE_CHECKING
@@ -74,7 +74,7 @@ def factorized(a: csc_matrix) -> Callable[[NDArray[floating]], NDArray[floating]
     return splinalg.factorized(a)
 
 
-class BaseSparseNormalIntegration:
+class SparseLstsqNormalIntegration:
     __slots__ = ("fdtype", "idtype", "shape", "xp")
 
     def __init__(
