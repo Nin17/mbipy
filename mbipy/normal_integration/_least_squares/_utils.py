@@ -86,8 +86,6 @@ class SparseLstsqNormalIntegration:
     ) -> None:
         """Sparse least squares normal integration.
 
-        !!! warning "Not part of the public API - use at your own risk!"
-
         Parameters
         ----------
         shape : tuple[int, int]
