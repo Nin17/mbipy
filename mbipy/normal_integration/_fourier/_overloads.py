@@ -72,7 +72,7 @@ def _check_s(s: types.UniTuple) -> None:
 def _rfft_2d_overload(
     x: types.Array,
     s: types.UniTuple,
-    workers: types.Integer | types.NoneType = None,
+    workers: types.Integer | types.NoneType,
 ) -> types.Array:
     _check_x_workers(x, workers)
     _check_s(s)
@@ -84,7 +84,7 @@ def _rfft_2d_overload(
         def impl(
             x: types.Array,
             s: types.UniTuple,
-            workers: types.Integer | types.NoneType = None,
+            workers: types.Integer | types.NoneType,
         ) -> types.Array:
             return fft.rfftn(x, s=s, axes=axes, workers=workers)
 
@@ -93,7 +93,7 @@ def _rfft_2d_overload(
         def impl(
             x: types.Array,
             s: types.UniTuple,
-            workers: types.Integer | types.NoneType = None,
+            workers: types.Integer | types.NoneType,
         ) -> types.Array:
             return np.fft.rfftn(x, s=s, axes=axes)
 
@@ -104,7 +104,7 @@ def _rfft_2d_overload(
 def _irfft_2d_overload(
     x: types.Array,
     s: types.UniTuple,
-    workers: types.Integer | types.NoneType = None,
+    workers: types.Integer | types.NoneType,
 ) -> types.Array:
     _check_x_workers(x, workers)
     _check_s(s)
@@ -116,7 +116,7 @@ def _irfft_2d_overload(
         def impl(
             x: types.Array,
             s: types.UniTuple,
-            workers: types.Integer | types.NoneType = None,
+            workers: types.Integer | types.NoneType,
         ) -> types.Array:
             return fft.irfftn(x, s=s, axes=axes, workers=workers)
 
@@ -125,7 +125,7 @@ def _irfft_2d_overload(
         def impl(
             x: types.Array,
             s: types.UniTuple,
-            workers: types.Integer | types.NoneType = None,
+            workers: types.Integer | types.NoneType,
         ) -> types.Array:
             return np.fft.irfftn(x, s=s, axes=axes)
 
@@ -135,7 +135,7 @@ def _irfft_2d_overload(
 @extending.overload(fft_2d)
 def _fft_2d_overload(
     x: types.Array,
-    workers: types.Integer | types.NoneType = None,
+    workers: types.Integer | types.NoneType,
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
@@ -145,7 +145,7 @@ def _fft_2d_overload(
 
         def impl(
             x: types.Array,
-            workers: types.Integer | types.NoneType = None,
+            workers: types.Integer | types.NoneType,
         ) -> types.Array:
             return fft.fftn(x, axes=axes, workers=workers)
 
@@ -153,7 +153,7 @@ def _fft_2d_overload(
 
         def impl(
             x: types.Array,
-            workers: types.Integer | types.NoneType = None,
+            workers: types.Integer | types.NoneType,
         ) -> types.Array:
             return np.fft.fftn(x, axes=axes)
 
@@ -163,7 +163,7 @@ def _fft_2d_overload(
 @extending.overload(ifft_2d)
 def _ifft_2d_overload(
     x: types.Array,
-    workers: types.Integer | types.NoneType = None,
+    workers: types.Integer | types.NoneType,
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
@@ -173,7 +173,7 @@ def _ifft_2d_overload(
 
         def impl(
             x: types.Array,
-            workers: types.Integer | types.NoneType = None,
+            workers: types.Integer | types.NoneType,
         ) -> types.Array:
             return fft.ifftn(x, axes=axes, workers=workers)
 
@@ -181,7 +181,7 @@ def _ifft_2d_overload(
 
         def impl(
             x: types.Array,
-            workers: types.Integer | types.NoneType = None,
+            workers: types.Integer | types.NoneType,
         ) -> types.Array:
             return np.fft.ifftn(x, axes=axes)
 
@@ -191,7 +191,7 @@ def _ifft_2d_overload(
 @extending.overload(dct2_2d)
 def _dct2_2d_overload(
     x: types.Array,
-    workers: types.Integer | types.NoneType = None,
+    workers: types.Integer | types.NoneType,
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
@@ -200,7 +200,7 @@ def _dct2_2d_overload(
 
         def impl(
             x: types.Array,
-            workers: types.Integer | types.NoneType = None,
+            workers: types.Integer | types.NoneType,
         ) -> types.Array:
             return fft.dctn(x, type=2, axes=axes, workers=workers)
 
@@ -212,7 +212,7 @@ def _dct2_2d_overload(
 @extending.overload(idct2_2d)
 def _idct2_2d_overload(
     x: types.Array,
-    workers: types.Integer | types.NoneType = None,
+    workers: types.Integer | types.NoneType,
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
@@ -221,7 +221,7 @@ def _idct2_2d_overload(
 
         def impl(
             x: types.Array,
-            workers: types.Integer | types.NoneType = None,
+            workers: types.Integer | types.NoneType,
         ) -> types.Array:
             return fft.idctn(x, type=2, axes=axes, workers=workers)
 
@@ -233,7 +233,7 @@ def _idct2_2d_overload(
 @extending.overload(dst1_2d)
 def _dst1_2d_overload(
     x: types.Array,
-    workers: types.Integer | types.NoneType = None,
+    workers: types.Integer | types.NoneType,
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
@@ -242,7 +242,7 @@ def _dst1_2d_overload(
 
         def impl(
             x: types.Array,
-            workers: types.Integer | types.NoneType = None,
+            workers: types.Integer | types.NoneType,
         ) -> types.Array:
             return fft.dstn(x, type=1, axes=axes, workers=workers)
 
@@ -254,7 +254,7 @@ def _dst1_2d_overload(
 @extending.overload(idst1_2d)
 def _idst1_2d_overload(
     x: types.Array,
-    workers: types.Integer | types.NoneType = None,
+    workers: types.Integer | types.NoneType,
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
@@ -263,7 +263,7 @@ def _idst1_2d_overload(
 
         def impl(
             x: types.Array,
-            workers: types.Integer | types.NoneType = None,
+            workers: types.Integer | types.NoneType,
         ) -> types.Array:
             return fft.idstn(x, type=1, axes=axes, workers=workers)
 
@@ -275,7 +275,7 @@ def _idst1_2d_overload(
 @extending.overload(flip)
 def _flip_overload(
     m: types.Array,
-    axis: types.Integer | types.UniTuple | types.NoneType = None,
+    axis: types.Integer | types.UniTuple | types.NoneType,
 ) -> types.Array:
     if not isinstance(m, types.Array):
         msg = f"a must be an array, got {m}."
@@ -284,7 +284,7 @@ def _flip_overload(
 
         def impl(
             m: types.Array,
-            axis: types.Integer | types.UniTuple | types.NoneType = None,
+            axis: types.Integer | types.UniTuple | types.NoneType,
         ) -> types.Array:
             if axis == -1:
                 return m[..., ::-1]
@@ -297,7 +297,7 @@ def _flip_overload(
 
         def impl(
             m: types.Array,
-            axis: types.Integer | types.UniTuple | types.NoneType = None,
+            axis: types.Integer | types.UniTuple | types.NoneType,
         ) -> types.Array:
             if axis == (-2, -1):
                 return m[..., ::-1, ::-1]
