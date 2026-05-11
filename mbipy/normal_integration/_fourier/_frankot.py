@@ -90,23 +90,22 @@ def frankot(
             msg = f"Invalid value for pad: {pad}"
             raise ValueError(msg)
 
-    fx = astype(
-        xp.fft.rfftfreq(x2) if fft_method == FFTMethod.RFFT else xp.fft.fftfreq(x2),
-        dtype,
-    )
-    fy = astype(xp.fft.fftfreq(y2)[:, None], dtype)
-
     match fft_method:
         case FFTMethod.RFFT:
+            fx = xp.fft.rfftfreq(x2)
             s = (y2, x2)
             gx_fft = rfft_2d(gx, s=s, workers=workers)
             gy_fft = rfft_2d(gy, s=s, workers=workers)
         case FFTMethod.FFT:
+            fx = xp.fft.fftfreq(x2)
             gx_fft = fft_2d(astype(gx, cdtype, copy=True), workers=workers)
             gy_fft = fft_2d(astype(gy, cdtype, copy=True), workers=workers)
         case _:
             msg = f"Invalid value for fft_method: {fft_method}"
             raise ValueError(msg)
+
+    fx = astype(fx, dtype)
+    fy = astype(xp.fft.fftfreq(y2)[:, None], dtype)
 
     gx_fft = imul(gx_fft, ..., fx)
     gy_fft = imul(gy_fft, ..., fy)

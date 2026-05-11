@@ -89,10 +89,25 @@ def arnison(
             msg = f"Invalid value for pad: {pad}"
             raise ValueError(msg)
 
-    fx = astype(
-        xp.fft.rfftfreq(x2) if fft_method == FFTMethod.RFFT else xp.fft.fftfreq(x2),
-        dtype,
-    )
+    match fft_method:
+        case FFTMethod.RFFT:
+            fx = xp.fft.rfftfreq(x2)
+            s = (y2, x2)
+            gxfft2 = rfft_2d(gx, s=s, workers=workers)
+            gyfft2 = rfft_2d(gy, s=s, workers=workers)
+            gyfft2 = imul(gyfft2, ..., 1.0j)
+            f_num = gxfft2 + gyfft2
+        case FFTMethod.FFT:
+            fx = xp.fft.fftfreq(x2)
+            gyc = astype(gy, cdtype, copy=True)
+            gyc = imul(gyc, ..., 1.0j)
+            operand = gx + gyc
+            f_num = fft_2d(operand, workers=workers)
+        case _:
+            msg = f"Invalid value for fft_method: {fft_method}"
+            raise ValueError(msg)
+
+    fx = astype(fx, dtype)
     fy = astype(xp.fft.fftfreq(y2), dtype)
     fx = imul(fx, ..., xp.pi)
     fy = imul(fy, ..., xp.pi)
@@ -101,22 +116,6 @@ def arnison(
     sinfy = xp.sin(fy)[:, None]
     sinfx = imul(sinfx, ..., 2.0j)
     sinfy = imul(sinfy, ..., -2.0)
-
-    match fft_method:
-        case FFTMethod.RFFT:
-            s = (y2, x2)
-            gxfft2 = rfft_2d(gx, s=s, workers=workers)
-            gyfft2 = rfft_2d(gy, s=s, workers=workers)
-            gyfft2 = imul(gyfft2, ..., 1.0j)
-            f_num = gxfft2 + gyfft2
-        case FFTMethod.FFT:
-            gyc = astype(gy, cdtype, copy=True)
-            gyc = imul(gyc, ..., 1.0j)
-            operand = gx + gyc
-            f_num = fft_2d(operand, workers=workers)
-        case _:
-            msg = f"Invalid value for fft_method: {fft_method}"
-            raise ValueError(msg)
 
     f_den = sinfx + sinfy
     f_den = setitem(f_den, (..., 0, 0), 1.0)  # avoid division by zero warning

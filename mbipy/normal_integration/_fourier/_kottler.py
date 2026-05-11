@@ -89,23 +89,16 @@ def kottler(
             msg = f"Invalid value for pad: {pad}"
             raise ValueError(msg)
 
-    fx = astype(
-        xp.fft.rfftfreq(x2) if fft_method == FFTMethod.RFFT else xp.fft.fftfreq(x2),
-        dtype,
-    )
-    fy = astype(xp.fft.fftfreq(y2)[:, None], dtype)
-    fx = astype(fx, cdtype)
-    fx = imul(fx, ..., 2.0j * xp.pi)  # Equivalent to fx *= 2.0j*xp.pi
-    fy = imul(fy, ..., -2.0 * xp.pi)  # Equivalent to fy *= -2.0*xp.pi
-
     match fft_method:
         case FFTMethod.RFFT:
+            fx = xp.fft.rfftfreq(x2)
             s = (y2, x2)
             gxfft = rfft_2d(gx, s=s, workers=workers)
             gyfft = rfft_2d(gy, s=s, workers=workers)
             gyfft = imul(gyfft, ..., 1.0j)  # Equivalent to gyfft *= 1.0j
             f_num = gxfft + gyfft
         case FFTMethod.FFT:
+            fx = xp.fft.fftfreq(x2)
             gyc = astype(gy, cdtype, copy=True)
             gyc = imul(gyc, ..., 1.0j)  # Equivalent to gyc *= 1.0j
             operand = gx + gyc
@@ -113,6 +106,11 @@ def kottler(
         case _:
             msg = f"Invalid value for fft_method: {fft_method}"
             raise ValueError(msg)
+
+    fx = astype(fx, cdtype)
+    fy = astype(xp.fft.fftfreq(y2)[:, None], dtype)
+    fx = imul(fx, ..., 2.0j * xp.pi)  # Equivalent to fx *= 2.0j*xp.pi
+    fy = imul(fy, ..., -2.0 * xp.pi)  # Equivalent to fy *= -2.0*xp.pi
     denom = fx + fy
     denom = setitem(denom, (..., 0, 0), 1.0)  # avoid division by zero warning
     frac = idiv(f_num, ..., denom)  # f_num is frac
