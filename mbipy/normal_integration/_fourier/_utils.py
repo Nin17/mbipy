@@ -13,9 +13,8 @@ from array_api_compat import (
     is_numpy_namespace,
     is_torch_namespace,
 )
-from numpy.lib.array_utils import normalize_axis_index  # TODO(nin17): implement myself
 
-from mbipy.src.config import config as cfg  # ??? where to import from - want in docs
+from mbipy.src.config import config as cfg
 from mbipy.src.utils import array_namespace, idiv
 
 if TYPE_CHECKING:
@@ -34,7 +33,7 @@ class AxisError(ValueError, IndexError):
         return f"axis {self.axis} is out of bounds for array of dimension {self.ndim}"
 
 
-def _normalize_axis_index(axis: int, ndim: int) -> int:
+def normalize_axis_index(axis: int, ndim: int) -> int:
     if axis < -ndim or axis >= ndim:
         raise AxisError(axis, ndim)
     return axis % ndim
@@ -227,7 +226,7 @@ def dct2_2d(x: NDArray[floating], workers: int | None = None) -> NDArray[floatin
     NotImplementedError
         If the array namespace is not cupy, jax, numpy or torch.
     """
-    # ??? could implement this myself like the DST - remove torch_dct dependency
+    # TODO(nin17): implement this myself like the DST - remove torch_dct dependency
     axes = (-2, -1)
     xp = array_namespace(x)
     if is_numpy_namespace(xp):
