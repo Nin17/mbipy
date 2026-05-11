@@ -64,7 +64,7 @@ def _li_vec(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
     xp.add(gx[:, :-3], gx[:, 3:], out=xp.reshape(w1, (i, j_3), copy=False))
     w1 /= 13.0
     out1 -= w1
-    # !!! Done later: out[:ij_3] *= 13 / 24
+    # Done later: out[:ij_3] *= 13 / 24
     del w1, out1  # Deletes the views, not the data - avoid accidental reuse
 
     w2 = w[:ji_3]
@@ -74,7 +74,7 @@ def _li_vec(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
     xp.add(gy[:-3, :], gy[3:, :], out=xp.reshape(w2, (i_3, j), copy=False))
     w2 /= 13.0
     out2 -= w2
-    out[:_s] *= 13.0 / 24.0  # !!! Here!
+    out[:_s] *= 13.0 / 24.0  # Done here!
     del w2, out2  # Deletes the views, not the data - avoid accidental reuse
 
     a0_3 = xp.asarray([0, -3], dtype=xp.int64)
@@ -129,7 +129,7 @@ def _li_matrix(
     cols = xp.empty((2, stop), dtype=idtype)
     col_view1 = xp.reshape(cols[:, :ij_3], (2, i, j - 3), copy=False)
     col_view1[:] = xp.reshape(array[:n], (i, j), copy=False)[:, 1:-2]
-    col_view1[1] += 1  # !!! to avoid copy in the above reshape
+    col_view1[1] += 1  # Avoid copy in the above reshape
     del col_view1  # Deletes the view, not the data - avoid accidental reuse
 
     cols[0, ij_3:_s] = array[j : j * (i - 2)]

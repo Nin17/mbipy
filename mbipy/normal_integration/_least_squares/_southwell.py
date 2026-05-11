@@ -78,7 +78,7 @@ def _southwell_matrix(
     cols = xp.empty((2, stop), dtype=idtype)
     col_view1 = xp.reshape(cols[:, :ij_1], (2, i, j - 1), copy=False)
     col_view1[:, :, :] = xp.reshape(array[:n], (i, j), copy=False)[:, :-1]
-    col_view1[1, :, :] += 1  # !!! to avoid copy in the above reshape
+    col_view1[1, :, :] += 1  # Avoid copy in the above reshape
     del col_view1  # Deletes the view, not the data - avoid accidental reuse
     cols[0, ij_1:] = array[:ji_1]
     cols[1, ij_1:] = array[j : i * j]

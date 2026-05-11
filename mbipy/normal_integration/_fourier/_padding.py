@@ -13,10 +13,6 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 
-# ??? redo padding do it edge value - values like in numpy rather than just - values
-# ??? possibly better for large values etc...
-
-
 def flip(a: NDArray, axis: int | tuple[int, ...] | None = None) -> NDArray:
     """Reverses the order of elements in an array along the given axis.
 

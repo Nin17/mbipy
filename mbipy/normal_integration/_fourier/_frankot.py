@@ -21,7 +21,8 @@ if TYPE_CHECKING:
     from numpy import floating
     from numpy.typing import NDArray
 
-# TODO(nin17): remove astype, use dtype kwarg instead
+# TODO(nin17): dtype kwarg in np.fft.fftfreq/rfftfreq wait for numpy & rocketfft
+# TODO(nin17): dtype promotion in numba
 
 
 def frankot(
@@ -91,11 +92,11 @@ def frankot(
 
     match fft_method:
         case FFTMethod.FFT:
-            fx = xp.fft.fftfreq(x2)
+            fx = xp.fft.fftfreq(x2)  # FIXME: dtype
             gx_fft = fft_2d(astype(gx, cdtype, copy=True), workers=workers)
             gy_fft = fft_2d(astype(gy, cdtype, copy=True), workers=workers)
         case FFTMethod.RFFT:
-            fx = xp.fft.rfftfreq(x2)
+            fx = xp.fft.rfftfreq(x2)  # FIXME: dtype
             s = (y2, x2)
             gx_fft = rfft_2d(gx, s=s, workers=workers)
             gy_fft = rfft_2d(gy, s=s, workers=workers)
@@ -103,8 +104,8 @@ def frankot(
             msg = f"Invalid value for fft_method: {fft_method}"
             raise ValueError(msg)
 
-    fx = astype(fx, dtype)
-    fy = astype(xp.fft.fftfreq(y2)[:, None], dtype)
+    fx = astype(fx, dtype)  # FIXME: dtype
+    fy = astype(xp.fft.fftfreq(y2)[:, None], dtype)  # FIXME: dtype
 
     gx_fft = at(gx_fft)[:].multiply(fx)
     gy_fft = at(gy_fft)[:].multiply(fy)
@@ -112,8 +113,8 @@ def frankot(
 
     fx = at(fx)[:].multiply(fx)
     fy = at(fy)[:].multiply(fy)
-    fx = astype(fx, cdtype)
-    fy = astype(fy, cdtype)
+    fx = astype(fx, cdtype) # FIXME: fx = fx * (2.0j * xp.pi)
+    fy = astype(fy, cdtype) # FIXME: fy = fy * (2.0j * xp.pi)
     fx = at(fx)[:].multiply(2.0j * xp.pi)
     fy = at(fy)[:].multiply(2.0j * xp.pi)
     f_den = fx + fy

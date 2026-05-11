@@ -21,7 +21,8 @@ if TYPE_CHECKING:
     from numpy import floating
     from numpy.typing import NDArray
 
-# TODO(nin17): remove astype, use dtype kwarg instead
+# TODO(nin17): dtype kwarg in np.linspace - waiting for numba
+# TODO(nin17): try to do this with type 2/3/4 dst - faster algorithm
 
 
 def dst_poisson(
@@ -62,8 +63,6 @@ def dst_poisson(
         If the input arrays are not real-valued.
 
     """
-    # !!! Slower algorithm if not using SciPy, rocket-fft or pyvkfft
-    # doubles the array size
     xp = array_namespace(gx, gy)
     dtype, _ = get_dtypes(gy, gx)
     sy, sx = xp.broadcast_shapes(gx.shape, gy.shape)[-2:]
@@ -86,7 +85,7 @@ def dst_poisson(
     indices_x = at(indices_x)[1:-1].set(arange[:sx])
 
     # Divergence (∇) of (gy, gx) using central differences
-    qy = gy[..., indices_y[2:], :] - gy[..., indices_y[:-2], :]  # ??? do inplace
+    qy = gy[..., indices_y[2:], :] - gy[..., indices_y[:-2], :]
     px = gx[..., :, indices_x[2:]] - gx[..., :, indices_x[:-2]]
 
     # ∇(gy, gx)
@@ -112,9 +111,8 @@ def dst_poisson(
 
     fsin = dst1_2d(f[..., 1:-1, 1:-1], workers=workers)
 
-    # TODO(nin17): dtype not supported in numba
-    x = astype(xp.linspace(0.0, xp.pi / 2.0, sx), dtype)[1:-1]
-    y = astype(xp.linspace(0.0, xp.pi / 2.0, sy), dtype)[1:-1][:, None]
+    x = astype(xp.linspace(0.0, xp.pi / 2.0, sx), dtype)[1:-1]  # FIXME: dtype
+    y = astype(xp.linspace(0.0, xp.pi / 2.0, sy), dtype)[1:-1][:, None]  # FIXME: dtype
     # Faster to do * before + : x.size + y.size vs x.size * y.size multiplications
     sinx = xp.sin(x)
     siny = xp.sin(y)

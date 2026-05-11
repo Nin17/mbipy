@@ -20,7 +20,8 @@ if TYPE_CHECKING:
     from numpy import floating
     from numpy.typing import NDArray
 
-# TODO(nin17): remove astype, use dtype kwarg instead
+# TODO(nin17): dtype kwarg in np.fft.fftfreq/rfftfreq wait for numpy & rocketfft
+# TODO(nin17): dtype promotion in numba
 
 
 def kottler(
@@ -90,13 +91,13 @@ def kottler(
 
     match fft_method:
         case FFTMethod.FFT:
-            fx = xp.fft.fftfreq(x2)
-            gyc = astype(gy, cdtype, copy=True)
+            fx = xp.fft.fftfreq(x2)  # FIXME: dtype
+            gyc = astype(gy, cdtype, copy=True)  # FIXME: gyc = gy * 1.0j
             gyc = at(gyc)[:].multiply(1.0j)
             operand = gx + gyc
             f_num = fft_2d(operand, workers=workers)
         case FFTMethod.RFFT:
-            fx = xp.fft.rfftfreq(x2)
+            fx = xp.fft.rfftfreq(x2)  # FIXME: dtype
             s = (y2, x2)
             gxfft = rfft_2d(gx, s=s, workers=workers)
             gyfft = rfft_2d(gy, s=s, workers=workers)
@@ -106,8 +107,8 @@ def kottler(
             msg = f"Invalid value for fft_method: {fft_method}"
             raise ValueError(msg)
 
-    fx = astype(fx, cdtype)
-    fy = astype(xp.fft.fftfreq(y2)[:, None], dtype)
+    fx = astype(fx, cdtype)  # FIXME: dtype
+    fy = astype(xp.fft.fftfreq(y2)[:, None], dtype)  # FIXME: dtype
     fx = at(fx)[:].multiply(2.0j * xp.pi)
     fy = at(fy)[:].multiply(-2.0 * xp.pi)
     denom = fx + fy

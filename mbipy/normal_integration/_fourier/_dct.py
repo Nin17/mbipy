@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from numpy import floating
     from numpy.typing import NDArray
 
-# TODO(nin17): remove astype, use dtype kwarg instead
+# TODO(nin17): dtype kwarg in np.linspace - waiting for numba
 
 
 def dct_poisson(
@@ -75,7 +75,7 @@ def dct_poisson(
     indices_x = at(indices_x)[1:-1].set(arange[:sx])
 
     # Divergence (∇) of (gy, gx) using central differences
-    qy = gy[..., indices_y[2:], :] - gy[..., indices_y[:-2], :]  # ??? do inplace
+    qy = gy[..., indices_y[2:], :] - gy[..., indices_y[:-2], :]
     px = gx[..., :, indices_x[2:]] - gx[..., :, indices_x[:-2]]
 
     # ∇(gy, gx)
@@ -100,13 +100,12 @@ def dct_poisson(
     f = at(f)[..., 0, 0].subtract(gx[..., 0, -1])
 
     fcos = dct2_2d(f, workers=workers)
-    fcos = at(fcos)[:].multiply(-1.0)
+    fcos = at(fcos)[:].multiply(-1.0)  # TODO(nin17): avoid - negate everything else
 
-    # TODO(nin17): dtype not supported in numba
-    x = astype(xp.linspace(0.0, xp.pi / 2.0, sx), dtype)
-    y = astype(xp.linspace(0.0, xp.pi / 2.0, sy), dtype)[:, None]
+    x = astype(xp.linspace(0.0, xp.pi / 2.0, sx), dtype)  # FIXME: dtype
+    y = astype(xp.linspace(0.0, xp.pi / 2.0, sy), dtype)[:, None]  # FIXME: dtype
     # Faster to do * before + : x.size + y.size vs x.size * y.size multiplications
-    sinx = xp.sin(x)  # ??? do inplace
+    sinx = xp.sin(x)
     siny = xp.sin(y)
     sinx = at(sinx)[:].multiply(sinx)
     siny = at(siny)[:].multiply(siny)

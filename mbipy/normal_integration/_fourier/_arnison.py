@@ -20,7 +20,8 @@ if TYPE_CHECKING:
     from numpy import floating
     from numpy.typing import NDArray
 
-# TODO(nin17): remove astype, use dtype kwarg instead
+# TODO(nin17): dtype kwarg in np.fft.fftfreq/rfftfreq wait for numpy & rocketfft
+# TODO(nin17): dtype promotion in numba
 
 
 def arnison(
@@ -90,13 +91,13 @@ def arnison(
 
     match fft_method:
         case FFTMethod.FFT:
-            fx = xp.fft.fftfreq(x2)
-            gyc = astype(gy, cdtype, copy=True)
+            fx = xp.fft.fftfreq(x2)  # FIXME: dtype kwarg
+            gyc = astype(gy, cdtype, copy=True)  # FIXME: gyc = gy * 1.0j
             gyc = at(gyc)[:].multiply(1.0j)
             operand = gx + gyc
             f_num = fft_2d(operand, workers=workers)
         case FFTMethod.RFFT:
-            fx = xp.fft.rfftfreq(x2)
+            fx = xp.fft.rfftfreq(x2)  # FIXME: dtype kwarg
             s = (y2, x2)
             gxfft2 = rfft_2d(gx, s=s, workers=workers)
             gyfft2 = rfft_2d(gy, s=s, workers=workers)
@@ -106,12 +107,12 @@ def arnison(
             msg = f"Invalid value for fft_method: {fft_method}"
             raise ValueError(msg)
 
-    fx = astype(fx, dtype)
-    fy = astype(xp.fft.fftfreq(y2), dtype)
+    fx = astype(fx, dtype)  # FIXME: dtype kwarg
+    fy = astype(xp.fft.fftfreq(y2), dtype)  # FIXME: dtype kwarg
     fx = at(fx)[:].multiply(xp.pi)
     fy = at(fy)[:].multiply(xp.pi)
 
-    sinfx = astype(xp.sin(fx), cdtype)
+    sinfx = astype(xp.sin(fx), cdtype)  # FIXME: sinfx = xp.sin(fx) * 2.0j
     sinfy = xp.sin(fy)[:, None]
     sinfx = at(sinfx)[:].multiply(2.0j)
     sinfy = at(sinfy)[:].multiply(-2.0)
