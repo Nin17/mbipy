@@ -45,7 +45,7 @@ def dst_poisson(
     # TODO(nin17): reference + doi link
     """Perform normal integration using the DST solution to the poisson equation.
 
-    === "Array API Compatibility"
+    ??? info "Array API Compatibility"
 
         {{ NormalIntegration.row("dst_poisson") | indent(4) }}
 

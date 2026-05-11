@@ -113,7 +113,7 @@ def _southwell_factorized_mt(
 def southwell(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
     """Perform normal integration using the method of Southwell[^1].
 
-    === "Array API Compatibility"
+    ??? info "Array API Compatibility"
 
         {{ NormalIntegration.row("southwell") | indent(4) }}
 
@@ -154,7 +154,7 @@ def southwell(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]
 class Southwell(BaseSparseNormalIntegration):
     """Perform normal integration using the method of Southwell[^1].
 
-    === "Array API Compatibility"
+    ??? info "Array API Compatibility"
 
         {{ NormalIntegration.row("Southwell") | indent(4) }}
 

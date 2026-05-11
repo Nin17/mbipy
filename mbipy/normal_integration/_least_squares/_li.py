@@ -177,7 +177,7 @@ def _li_factorized_mt(
 def li(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
     """Perform normal integration using the method of Li et al[^1].
 
-    === "Array API Compatibility"
+    ??? info "Array API Compatibility"
 
         {{ NormalIntegration.row("li") | indent(4) }}
 
@@ -220,7 +220,7 @@ def li(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
 class Li(BaseSparseNormalIntegration):
     """Perform normal integration using the method of Li et al[^1].
 
-    === "Array API Compatibility"
+    ??? info "Array API Compatibility"
 
         {{ NormalIntegration.row("Li") | indent(4) }}
 

@@ -47,7 +47,7 @@ def antisymmetric(
 ) -> tuple[NDArray[number], NDArray[number]]:
     """Antisymmetric padding of the input gradients[^1].
 
-    === "Array API Compatibility"
+    ??? info "Array API Compatibility"
 
         {{ NormalIntegrationPadding.row("antisymmetric") | indent(4) }}
 
