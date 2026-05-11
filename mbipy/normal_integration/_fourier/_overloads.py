@@ -93,7 +93,7 @@ def _rfft_2d_overload(
         def impl(
             x: types.Array,
             s: types.UniTuple,
-            workers: types.Integer | types.NoneType,
+            workers: types.Integer | types.NoneType,  # noqa: ARG001
         ) -> types.Array:
             return np.fft.rfftn(x, s=s, axes=axes)
 
@@ -125,7 +125,7 @@ def _irfft_2d_overload(
         def impl(
             x: types.Array,
             s: types.UniTuple,
-            workers: types.Integer | types.NoneType,
+            workers: types.Integer | types.NoneType,  # noqa: ARG001
         ) -> types.Array:
             return np.fft.irfftn(x, s=s, axes=axes)
 
@@ -153,7 +153,7 @@ def _fft_2d_overload(
 
         def impl(
             x: types.Array,
-            workers: types.Integer | types.NoneType,
+            workers: types.Integer | types.NoneType,  # noqa: ARG001
         ) -> types.Array:
             return np.fft.fftn(x, axes=axes)
 
@@ -181,7 +181,7 @@ def _ifft_2d_overload(
 
         def impl(
             x: types.Array,
-            workers: types.Integer | types.NoneType,
+            workers: types.Integer | types.NoneType,  # noqa: ARG001
         ) -> types.Array:
             return np.fft.ifftn(x, axes=axes)
 
@@ -195,18 +195,15 @@ def _dct2_2d_overload(
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
-    if cfg._have_scipy:
-        fft = import_module("scipy.fft")
+    fft = import_module("scipy.fft")
 
-        def impl(
-            x: types.Array,
-            workers: types.Integer | types.NoneType,
-        ) -> types.Array:
-            return fft.dctn(x, type=2, axes=axes, workers=workers)
+    def impl(
+        x: types.Array,
+        workers: types.Integer | types.NoneType,
+    ) -> types.Array:
+        return fft.dctn(x, type=2, axes=axes, workers=workers)
 
-        return impl
-    msg = "Scipy is required for the DCT"
-    raise errors.NumbaNotImplementedError(msg)
+    return impl
 
 
 @extending.overload(idct2_2d)
@@ -216,18 +213,15 @@ def _idct2_2d_overload(
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
-    if cfg._have_scipy:
-        fft = import_module("scipy.fft")
+    fft = import_module("scipy.fft")
 
-        def impl(
-            x: types.Array,
-            workers: types.Integer | types.NoneType,
-        ) -> types.Array:
-            return fft.idctn(x, type=2, axes=axes, workers=workers)
+    def impl(
+        x: types.Array,
+        workers: types.Integer | types.NoneType,
+    ) -> types.Array:
+        return fft.idctn(x, type=2, axes=axes, workers=workers)
 
-        return impl
-    msg = "Scipy is required for the IDCT"
-    raise errors.NumbaNotImplementedError(msg)
+    return impl
 
 
 @extending.overload(dst1_2d)
@@ -237,18 +231,15 @@ def _dst1_2d_overload(
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
-    if cfg._have_scipy:
-        fft = import_module("scipy.fft")
+    fft = import_module("scipy.fft")
 
-        def impl(
-            x: types.Array,
-            workers: types.Integer | types.NoneType,
-        ) -> types.Array:
-            return fft.dstn(x, type=1, axes=axes, workers=workers)
+    def impl(
+        x: types.Array,
+        workers: types.Integer | types.NoneType,
+    ) -> types.Array:
+        return fft.dstn(x, type=1, axes=axes, workers=workers)
 
-        return impl
-    msg = "Scipy is required for the DST"
-    raise errors.NumbaNotImplementedError(msg)
+    return impl
 
 
 @extending.overload(idst1_2d)
@@ -258,18 +249,15 @@ def _idst1_2d_overload(
 ) -> types.Array:
     _check_x_workers(x, workers)
     axes = (-2, -1)
-    if cfg._have_scipy:
-        fft = import_module("scipy.fft")
+    fft = import_module("scipy.fft")
 
-        def impl(
-            x: types.Array,
-            workers: types.Integer | types.NoneType,
-        ) -> types.Array:
-            return fft.idstn(x, type=1, axes=axes, workers=workers)
+    def impl(
+        x: types.Array,
+        workers: types.Integer | types.NoneType,
+    ) -> types.Array:
+        return fft.idstn(x, type=1, axes=axes, workers=workers)
 
-        return impl
-    msg = "Scipy is required for the IDST"
-    raise errors.NumbaNotImplementedError(msg)
+    return impl
 
 
 @extending.overload(flip)
