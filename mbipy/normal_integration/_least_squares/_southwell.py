@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from mbipy.src.utils import array_namespace, get_dtypes
 
-from ._utils import BaseSparseNormalIntegration, csr_matrix, factorized
+from ._utils import BaseSparseNormalIntegration, _csr_matrix, factorized
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -21,11 +21,7 @@ if TYPE_CHECKING:
 
     from numpy import dtype, floating, integer
     from numpy.typing import NDArray
-
-    from mbipy.src.config import config as cfg
-
-    if cfg._have_scipy:
-        from scipy.sparse import spmatrix
+    from scipy.sparse import csc_matrix, csr_matrix
 
 
 def _southwell_vec(gy: NDArray[floating], gx: NDArray[floating]) -> NDArray[floating]:
@@ -67,7 +63,7 @@ def _southwell_matrix(
     xp: ModuleType,
     idtype: dtype[integer],
     fdtype: dtype[floating],
-) -> spmatrix:
+) -> csr_matrix:
     i, j = shape
     n = i * j
     ij_1 = i * (j - 1)
@@ -93,7 +89,7 @@ def _southwell_matrix(
     data[1, :] = 1.0
     data = xp.reshape(data, -1, copy=False)
 
-    return csr_matrix(data, rows, cols, shape=(stop, n))
+    return _csr_matrix(data, rows, cols, shape=(stop, n))
 
 
 @functools.lru_cache
@@ -102,7 +98,7 @@ def _southwell_factorized_mt(
     xp: ModuleType,
     idtype: dtype[integer],
     fdtype: dtype[floating],
-) -> tuple[Callable[[NDArray], NDArray], spmatrix]:
+) -> tuple[Callable[[NDArray], NDArray], csc_matrix]:
     m = _southwell_matrix(shape, xp, idtype, fdtype)
     mt = m.T
     return factorized(mt @ m), mt
@@ -168,7 +164,7 @@ class Southwell(BaseSparseNormalIntegration):
         xp: ModuleType,
         idtype: dtype[integer],
         fdtype: dtype[floating],
-    ) -> tuple[Callable[[NDArray], NDArray], spmatrix]:
+    ) -> tuple[Callable[[NDArray], NDArray], csc_matrix]:
         return _southwell_factorized_mt(shape, xp, idtype, fdtype)
 
     @staticmethod
