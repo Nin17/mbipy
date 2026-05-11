@@ -1,0 +1,6 @@
+[submodule "subprojects/array-api-compat"]
+	path = subprojects/array-api-compat
+	url = git@github.com:data-apis/array-api-compat.git
+[submodule "subprojects/array-api-extra"]
+	path = subprojects/array-api-extra
+	url = git@github.com:data-apis/array-api-extra.git
